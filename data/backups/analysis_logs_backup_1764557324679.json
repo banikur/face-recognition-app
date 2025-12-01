@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1,
+    "user_id": null,
+    "skin_condition_detected": "Oily",
+    "recommended_product_id": 6,
+    "created_at": "2025-09-19 14:07:39"
+  },
+  {
+    "id": 2,
+    "user_id": null,
+    "skin_condition_detected": "Dry",
+    "recommended_product_id": 7,
+    "created_at": "2025-09-19 14:07:39"
+  },
+  {
+    "id": 3,
+    "user_id": null,
+    "skin_condition_detected": "Normal",
+    "recommended_product_id": 8,
+    "created_at": "2025-09-19 14:07:39"
+  },
+  {
+    "id": 4,
+    "user_id": null,
+    "skin_condition_detected": "Combination",
+    "recommended_product_id": 9,
+    "created_at": "2025-09-19 14:07:39"
+  },
+  {
+    "id": 5,
+    "user_id": null,
+    "skin_condition_detected": "Acne-prone",
+    "recommended_product_id": 10,
+    "created_at": "2025-09-19 14:07:39"
+  }
+]
