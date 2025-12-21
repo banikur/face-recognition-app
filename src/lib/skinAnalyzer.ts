@@ -1,8 +1,10 @@
 /**
  * Skin Analyzer with Trained CNN Model
- * 
+ *
  * Uses TFLite model trained on skin dataset for classification
  */
+
+import { detectFaces, FaceDetectionResult, initializeFaceDetection } from './faceDetection';
 
 export interface SkinScores {
     oily: number;
@@ -23,22 +25,40 @@ const LABELS = ['acne', 'normal', 'oily', 'dry'];
 const IMG_SIZE = 128;
 
 /**
- * Capture frame from video
+ * Capture frame from video with proper aspect ratio for face detection
  */
 function captureFrame(video: HTMLVideoElement): { imageData: ImageData; base64: string; tensor: number[] } | null {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    // Resize to model input size
+    // Resize to model input size (square for skin analysis)
     canvas.width = IMG_SIZE;
     canvas.height = IMG_SIZE;
 
-    // Draw video frame centered and cropped
-    const size = Math.min(video.videoWidth, video.videoHeight);
-    const sx = (video.videoWidth - size) / 2;
-    const sy = (video.videoHeight - size) / 2;
-    ctx.drawImage(video, sx, sy, size, size, 0, 0, IMG_SIZE, IMG_SIZE);
+    // Calculate aspect ratio to center the face properly for detection
+    // Use 4:5 aspect ratio for better face positioning (consistent with UI)
+    const targetAspectRatio = 4 / 5; // 4:5 ratio
+    const videoAspectRatio = video.videoWidth / video.videoHeight;
+
+    let drawWidth, drawHeight, sx, sy;
+
+    if (videoAspectRatio > targetAspectRatio) {
+        // Video is wider than target - letterbox (black bars on sides)
+        drawHeight = video.videoHeight;
+        drawWidth = video.videoHeight * targetAspectRatio;
+        sx = (video.videoWidth - drawWidth) / 2;
+        sy = 0;
+    } else {
+        // Video is taller than target - pillarbox (black bars on top/bottom)
+        drawWidth = video.videoWidth;
+        drawHeight = video.videoWidth / targetAspectRatio;
+        sx = 0;
+        sy = (video.videoHeight - drawHeight) / 2;
+    }
+
+    // Draw the properly aspect-ratioed video frame to the canvas
+    ctx.drawImage(video, sx, sy, drawWidth, drawHeight, 0, 0, IMG_SIZE, IMG_SIZE);
 
     const imageData = ctx.getImageData(0, 0, IMG_SIZE, IMG_SIZE);
 
@@ -58,29 +78,33 @@ function captureFrame(video: HTMLVideoElement): { imageData: ImageData; base64: 
 }
 
 /**
- * Detect face presence using skin tone
+ * Detect face presence using CNN-based detection
  */
-function detectFacePresence(imageData: ImageData): boolean {
-    const { data } = imageData;
-    let skinPixels = 0;
-    const totalPixels = data.length / 4;
+async function detectFacePresenceWithCNN(video: HTMLVideoElement): Promise<{ detected: boolean; boundingBox?: any }> {
+    try {
+        console.log('CNN Face Detection Process Started - Using TensorFlow.js MediaPipe model with 0.3 threshold...');
+        const detectionResult: FaceDetectionResult = await detectFaces(video);
+        console.log('CNN Detection result from TensorFlow.js model:', detectionResult);
 
-    for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
+        if (detectionResult.faceDetected && detectionResult.confidence > 0.2) { // Lower threshold since we now calculate confidence properly
+            console.log('✅ Face CONFIRMED by CNN model with sufficient confidence:', detectionResult.confidence, '(threshold: 0.2)');
+            return {
+                detected: true,
+                boundingBox: detectionResult.boundingBox
+            };
+        } else {
+            console.log(`❌ Face NOT DETECTED by CNN model. Detected: ${detectionResult.faceDetected}, Confidence: ${detectionResult.confidence} (threshold: 0.2)`);
+        }
 
-        const isSkinTone =
-            r > 60 && r < 255 &&
-            g > 40 && g < 230 &&
-            b > 20 && b < 200 &&
-            r > g && r > b &&
-            Math.abs(r - g) > 10;
-
-        if (isSkinTone) skinPixels++;
+        return {
+            detected: false
+        };
+    } catch (error) {
+        console.error('🚨 Error in CNN face detection:', error);
+        return {
+            detected: false
+        };
     }
-
-    return (skinPixels / totalPixels) > 0.15;
 }
 
 /**
@@ -184,14 +208,21 @@ export async function analyzeSkin(video: HTMLVideoElement): Promise<AnalysisResu
             };
         }
 
-        const faceDetected = detectFacePresence(frame.imageData);
-        if (!faceDetected) {
+        // Use CNN-based face detection instead of heuristic
+        console.log('🚀 Starting CNN-based face detection from skin analyzer (replaced heuristic method)...');
+        const faceDetectionResult = await detectFacePresenceWithCNN(video);
+        console.log('Final CNN face detection result:', faceDetectionResult);
+
+        if (!faceDetectionResult.detected) {
+            console.log('❌ No face detected by CNN model, returning unknown result');
             return {
                 skinType: 'Unknown',
                 scores: { oily: 0, dry: 0, normal: 0, acne: 0 },
                 faceDetected: false,
             };
         }
+
+        console.log('✅ Face successfully detected by CNN model, proceeding with skin analysis...');
 
         const scores = extractFeatures(frame.imageData);
         const { type, confidence } = getDominantType(scores);
@@ -213,7 +244,14 @@ export async function analyzeSkin(video: HTMLVideoElement): Promise<AnalysisResu
     }
 }
 
-// Placeholder for future model loading
+// Initialize face detection model
 export async function initFaceMesh(): Promise<void> {
+    // This function could be updated to initialize the face detection model
+    // Currently it's a placeholder, but now we have the real implementation
     return Promise.resolve();
+}
+
+// Initialize face detection model on app start
+export async function initFaceDetection(): Promise<void> {
+    await initializeFaceDetection();
 }

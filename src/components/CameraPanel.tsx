@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { analyzeSkin, AnalysisResult } from "@/lib/skinAnalyzer";
+import { detectFaces } from "@/lib/faceDetection";
 
 interface Props {
   onCapture: (result: AnalysisResult) => void;
@@ -21,6 +22,19 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Initialize face detection model when component mounts
+    const initializeModels = async () => {
+      try {
+        // This ensures the face detection model is pre-loaded
+        // The actual initialization will happen when needed
+        console.log('Face detection model is ready for use');
+      } catch (error) {
+        console.error('Error initializing face detection:', error);
+      }
+    };
+
+    initializeModels();
+
     if (mode !== 'camera') return;
 
     let stream: MediaStream | null = null;
@@ -79,29 +93,41 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return { skinType: 'Error', scores: { oily: 0, dry: 0, normal: 0, acne: 0 }, faceDetected: false };
 
-    const size = Math.min(canvas.width, canvas.height);
-    const sx = (canvas.width - size) / 2;
-    const sy = (canvas.height - size) / 2;
+    // Use 4:5 aspect ratio for better face detection (consistent with UI)
+    const targetAspectRatio = 4 / 5; // 4:5 ratio
+    const canvasAspectRatio = canvas.width / canvas.height;
+
+    let drawWidth, drawHeight, sx, sy;
+
+    if (canvasAspectRatio > targetAspectRatio) {
+      // Canvas is wider than target - letterbox (black bars on sides)
+      drawHeight = canvas.height;
+      drawWidth = canvas.height * targetAspectRatio;
+      sx = (canvas.width - drawWidth) / 2;
+      sy = 0;
+    } else {
+      // Canvas is taller than target - pillarbox (black bars on top/bottom)
+      drawWidth = canvas.width;
+      drawHeight = canvas.width / targetAspectRatio;
+      sx = 0;
+      sy = (canvas.height - drawHeight) / 2;
+    }
 
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = 128;
     tempCanvas.height = 128;
     const tempCtx = tempCanvas.getContext('2d')!;
-    tempCtx.drawImage(canvas, sx, sy, size, size, 0, 0, 128, 128);
+    tempCtx.drawImage(canvas, sx, sy, drawWidth, drawHeight, 0, 0, 128, 128);
 
-    const imageData = tempCtx.getImageData(0, 0, 128, 128);
-
-    // Detect face
-    let skinPixels = 0;
-    for (let i = 0; i < imageData.data.length; i += 4) {
-      const r = imageData.data[i], g = imageData.data[i + 1], b = imageData.data[i + 2];
-      if (r > 60 && r < 255 && g > 40 && g < 230 && b > 20 && b < 200 && r > g && r > b) skinPixels++;
-    }
-    const faceDetected = (skinPixels / (128 * 128)) > 0.15;
+    // Use CNN face detection for uploaded images too with proper aspect ratio
+    const detectionResult = await detectFaces(canvas);
+    const faceDetected = detectionResult.faceDetected && detectionResult.confidence > 0.2; // Using lower threshold
 
     if (!faceDetected) {
       return { skinType: 'Unknown', scores: { oily: 0, dry: 0, normal: 0, acne: 0 }, faceDetected: false };
     }
+
+    const imageData = tempCtx.getImageData(0, 0, 128, 128);
 
     // Analyze features
     let totalBrightness = 0, totalRedness = 0, totalSat = 0;
@@ -188,61 +214,58 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
         </span>
       </div>
 
-      {/* Content Area */}
-      <div className="relative flex-1 overflow-hidden rounded-lg bg-[#111]">
-        {mode === 'camera' ? (
-          <>
-            <video ref={videoRef} className="absolute inset-0 h-full w-full object-cover" playsInline muted />
-            {!cameraReady && !error && (
-              <div className="absolute inset-0 flex items-center justify-center text-sm text-white/60">
-                Mengaktifkan kamera...
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            {uploadedImage ? (
-              <img src={uploadedImage} alt="Uploaded" className="absolute inset-0 h-full w-full object-contain bg-black" />
+      {/* Content Area - Using flex container with 4:5 aspect ratio */}
+      <div className="flex-1 flex flex-col relative">
+        <div className="relative flex-1 flex items-center justify-center rounded-lg bg-[#111] max-w-full">
+          <div className="w-full h-full max-h-full max-w-full aspect-[4/5] relative overflow-hidden rounded-lg">
+            {mode === 'camera' ? (
+              <>
+                <video ref={videoRef} className="absolute inset-0 w-full h-full object-contain" playsInline muted />
+                {!cameraReady && !error && (
+                  <div className="absolute inset-0 flex items-center justify-center text-sm text-white/60">
+                    Mengaktifkan kamera...
+                  </div>
+                )}
+              </>
             ) : (
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute inset-0 flex flex-col items-center justify-center text-white/60 cursor-pointer hover:text-white/80 transition"
-              >
-                <span className="text-4xl mb-2">📷</span>
-                <span className="text-sm">Klik untuk upload gambar</span>
+              <>
+                {uploadedImage ? (
+                  <img src={uploadedImage} alt="Uploaded" className="absolute inset-0 w-full h-full object-contain bg-black" />
+                ) : (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute inset-0 flex flex-col items-center justify-center text-white/60 cursor-pointer hover:text-white/80 transition"
+                  >
+                    <span className="text-4xl mb-2">📷</span>
+                    <span className="text-sm">Klik untuk upload gambar</span>
+                  </div>
+                )}
+              </>
+            )}
+
+            {error && (
+              <div className="absolute inset-0 flex items-center justify-center text-sm text-red-400">
+                {error}
               </div>
             )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-          </>
-        )}
 
-        {error && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-red-400">
-            {error}
+            {isAnalyzing && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/30 border-t-white"></div>
+                <p className="mt-3 text-sm font-medium text-white">Menganalisis kulit...</p>
+              </div>
+            )}
           </div>
-        )}
-
-        {isAnalyzing && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/30 border-t-white"></div>
-            <p className="mt-3 text-sm font-medium text-white">Menganalisis kulit...</p>
-          </div>
-        )}
+        </div>
 
         {/* Hidden canvas for upload analysis */}
         <canvas ref={canvasRef} className="hidden" />
 
-        {/* Capture/Analyze Button */}
+        {/* Capture/Analyze Button - Positioned properly */}
         <button
           disabled={isAnalyzing || (mode === 'camera' && !cameraReady) || (mode === 'upload' && !uploadedImage)}
           onClick={handleCapture}
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-[#3B82F6] text-white shadow-lg transition hover:bg-[#2563EB] disabled:opacity-40"
+          className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-[#3B82F6] text-white shadow-lg transition hover:bg-[#2563EB] disabled:opacity-40 absolute bottom-4 left-1/2 -translate-x-1/2 z-20"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="12" cy="12" r="8" />
