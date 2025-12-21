@@ -133,21 +133,36 @@ di mana `Wp = [w_oily, w_dry, w_normal, w_acne]`.
 
 ---
 
-## 🧠 Face Detection & Skin Heuristic
+## 🧠 Face Detection & Skin Classification
 
 ### Teknologi:
 
-* TensorFlow.js + MediaPipe Face Mesh.
-* Analisis area wajah (dahi, pipi, hidung).
+* **CNN-based Face Detection**: TensorFlow.js + MediaPipe Face Detection (Deep Learning)
+* **CNN-based Skin Classification**: Trained skin classifier model (Deep Learning)
+* **Rule-based Product Recommendation**: Keyword matching + dot product scoring (HANYA ini yang rule-based)
 
-### Heuristik Deteksi:
+### Face Detection (CNN - Deep Learning):
 
-| Kondisi    | Indikator Visual                                      |
-| ---------- | ----------------------------------------------------- |
-| Oily       | Tinggi specular highlight (HSV-V), low local contrast |
-| Dry        | Low saturation, high texture roughness                |
-| Normal     | Balanced parameter dari 3 kondisi                     |
-| Acne-Prone | High redness, uneven texture (blob detection)         |
+* Deteksi wajah menggunakan model CNN (MediaPipe atau TensorFlow.js)
+* **BUKAN rule-based** - Menggunakan Deep Learning
+* Mendapatkan bounding box dan landmarks wajah
+* Ekstraksi region wajah untuk analisis kulit
+
+### Skin Classification (CNN - Deep Learning):
+
+* Menggunakan model CNN yang sudah di-train (`public/models/skin-classifier/`)
+* **BUKAN rule-based** - Menggunakan Deep Learning
+* Input: Gambar wajah 128x128 RGB
+* Output: Probabilitas 4 kelas [acne, normal, oily, dry]
+* Konversi ke skor 0-100 untuk setiap kondisi kulit
+
+### Product Recommendation (Rule-based - HANYA ini):
+
+* **HANYA komponen ini yang menggunakan rule-based** (bukan ML/DL)
+* Keyword matching dari ingredients produk
+* Perhitungan bobot otomatis berdasarkan keywords
+* Scoring menggunakan dot product: `score = skinScores · productWeights`
+* Mengembalikan Top-3 produk dengan skor tertinggi
 
 > Semua inferensi berjalan **di browser (client-side)**, tidak kirim foto ke server.
 
@@ -245,7 +260,7 @@ di mana `Wp = [w_oily, w_dry, w_normal, w_acne]`.
 3. Buat endpoint `/api/analysis`
 
 **Midday**
-4. Bangun database MySQL
+4. Bangun database SQLite
 5. Implement auto weight mapping + CRUD produk
 6. Simpan hasil analisis ke `analysis_logs`
 
@@ -268,7 +283,7 @@ di mana `Wp = [w_oily, w_dry, w_normal, w_acne]`.
 ### Architecture Rules
 - Use **direct route handlers** (Next.js API routes)
 - Avoid service/repository abstraction layers
-- No ORM (use `mysql2` or raw queries)
+- No ORM (use `better-sqlite3` with raw SQL queries)
 - No state management library (Redux/Zustand, etc.)
 
 ### Performance
@@ -276,4 +291,4 @@ di mana `Wp = [w_oily, w_dry, w_normal, w_acne]`.
 - Function length ≤ 50 lines; single responsibility per file
 
 ### Dependencies (Allowed Only)
-- `next`, `react`, `tensorflow.js`, `mysql2`, `xlsx`, `pdfkit`
+- `next`, `react`, `@tensorflow/tfjs`, `better-sqlite3`, `xlsx`, `pdfkit`, `@mediapipe/face_mesh`

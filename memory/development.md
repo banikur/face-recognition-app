@@ -6,10 +6,13 @@ This is a Next.js monolith application with SQLite database that provides face w
 
 ## Technology Stack
 
-- **Frontend**: Next.js 13+ with App Router, TypeScript, Tailwind CSS
-- **Backend**: Next.js API routes (monolith architecture)
+- **Frontend**: Next.js 15 with App Router, React 19, TypeScript, TailwindCSS
+- **Backend**: Next.js API Routes (monolith architecture)
 - **Database**: SQLite with better-sqlite3
-- **Data Export**: CSV/JSON export functionality
+- **Face Detection**: CNN-based using MediaPipe/TensorFlow.js
+- **Skin Classification**: CNN-based using trained TensorFlow.js model
+- **Product Recommendation**: Rule-based (keyword matching + dot product scoring)
+- **Data Export**: XLSX (Excel), PDFKit (PDF)
 
 ## Project Structure
 
@@ -17,14 +20,17 @@ This is a Next.js monolith application with SQLite database that provides face w
 face-recognition-app/
 ├── data/                 # Database files and models
 ├── public/               # Static assets
-│   └── models/           # face-api.js models
+│   └── models/           # CNN models (TensorFlow.js format)
+│       └── skin-classifier/  # Trained skin classification model
 ├── src/
 │   └── app/              # Next.js app directory
-│       ├── admin/        # Admin dashboard and CRUD pages
-│       ├── face-recognition/  # Face recognition components
-│       ├── recommendations/   # Product recommendations
+│       ├── admin/        # Admin dashboard
+│       ├── api/          # API routes
+│       ├── components/   # React components
+│       ├── lib/          # Utilities (skinAnalyzer, etc.)
 │       ├── layout.tsx    # Main layout
 │       └── page.tsx      # Home page
+├── scripts/              # Training scripts (TypeScript)
 ├── memory/               # Development documentation
 └── package.json          # Project dependencies
 ```
@@ -33,11 +39,8 @@ face-recognition-app/
 
 The application uses SQLite with the following tables:
 
-1. **skin_types** - Different skin types (Oily, Dry, Normal, etc.)
-2. **products** - Face wash products with their properties
-3. **ingredients** - Product ingredients and their effects
-4. **rules** - Recommendation rules linking skin types to products
-5. **analysis_logs** - Records of user analysis sessions
+1. **products** - Face wash products with auto-calculated weights (w_oily, w_dry, w_normal, w_acne)
+2. **analysis_logs** - Records of user analysis sessions with skin scores and recommendations
 
 ## Setup and Installation
 
@@ -70,38 +73,44 @@ The application uses SQLite with the following tables:
 ## Key Features Implemented
 
 ### User Features
-- Face recognition analysis using face-api.js
-- Personalized product recommendations
+- CNN-based face detection and skin classification
+- Personalized product recommendations (rule-based)
 - Analysis history tracking
 
 ### Admin Features
-- CRUD operations for products, skin types, ingredients, and rules
+- CRUD operations for products (auto weight mapping)
 - Analytics dashboard with reports
-- Data export to CSV/JSON formats
+- Data export to Excel/PDF formats
 
 ## Data Models
 
 All database operations are handled through TypeScript models in `data/models.ts`:
-- SkinType
-- Product
-- Ingredient
-- Rule
+- Product (with auto weight calculation)
 - AnalysisLog
 
-Each model includes functions for:
-- Retrieving all records
-- Retrieving by ID
-- Creating new records
-- Updating existing records
-- Deleting records
+Key functions:
+- `calculateWeights(ingredients)` - Auto-calculates product weights from ingredients
+- `getAllProducts()` - Retrieve all products
+- `createProduct()` - Create product with auto weight mapping
+- `getAllAnalysisLogs()` - Retrieve analysis logs with filtering
 
 ## Face Recognition Implementation
 
-The face recognition feature uses face-api.js library:
-1. Users can upload face images or use their camera
-2. face-api.js analyzes facial features
-3. Skin condition is determined based on analysis
-4. Recommendations are generated based on skin type
+The face recognition feature uses **CNN-based models** (Deep Learning):
+1. **Face Detection**: CNN-based (Deep Learning) using MediaPipe or TensorFlow.js face detection models
+   - **NOT rule-based** - Uses trained CNN models
+   - Detects face bounding boxes in real-time
+   - Extracts face region for analysis
+2. **Skin Classification**: CNN-based (Deep Learning) using trained skin classifier model
+   - **NOT rule-based** - Uses trained CNN models
+   - Model located at `public/models/skin-classifier/`
+   - Classifies skin into 4 categories: oily, dry, normal, acne
+   - Returns confidence scores for each category
+3. **Product Recommendation**: Rule-based system (HANYA ini yang rule-based)
+   - **ONLY rule-based component** in the entire system
+   - Keyword matching from product ingredients
+   - Dot product scoring: `score = skinScores · productWeights`
+   - Returns top 3 matching products
 
 ## Admin Functionality
 
@@ -113,10 +122,31 @@ The admin section provides a complete CRUD interface for all master data:
 - Analysis reports
 - Data export capabilities
 
+## Implementation Methods
+
+### Face Detection & Recognition
+- **CNN-based (Deep Learning)**: Uses MediaPipe Face Detection or TensorFlow.js models
+- **NOT rule-based** - Uses trained CNN models
+- Real-time face detection in browser
+- Extracts face regions for skin analysis
+
+### Skin Classification
+- **CNN-based (Deep Learning)**: Uses trained skin classifier model
+- **NOT rule-based** - Uses trained CNN models
+- Model processes 128x128 RGB face images
+- Outputs probabilities for 4 skin conditions
+
+### Product Recommendation
+- **Rule-based ONLY** (NOT ML-based): Keyword matching + dot product scoring
+- **This is the ONLY rule-based component** in the entire system
+- Automatic weight calculation from ingredients
+- Returns top 3 products based on skin condition scores
+
 ## Future Improvements
 
-1. Implement actual face analysis algorithms instead of simulated results
+1. Add face recognition (identify specific users)
 2. Add user authentication and personalized history
-3. Enhance the recommendation engine with more sophisticated algorithms
-4. Add image upload functionality in addition to camera capture
+3. Fine-tune CNN models with more training data
+4. Add model versioning and A/B testing
 5. Implement more detailed analytics and reporting
+6. Optimize model loading and inference performance

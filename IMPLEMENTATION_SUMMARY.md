@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This is a **Face Recognition Based Skincare Recommendation App** implemented according to the spec-kit-lite requirements. The application provides personalized skincare product recommendations based on facial skin analysis.
+This is a **Face Recognition Based Skincare Recommendation App** implemented according to the spec-kit-lite requirements. The application provides personalized skincare product recommendations based on facial skin analysis using **CNN-based face recognition and detection** for skin analysis, with **rule-based product recommendation** system.
 
 ## Implementation Status: ✅ COMPLETE
 
@@ -87,14 +87,26 @@ All core features have been implemented as specified in the spec-kit-lite.md doc
    - Highlights dominant condition
    - Lists Top-3 recommended products with match scores
 
-**Skin Analysis Heuristics:**
-- Analyzes center 60% of image (face region)
-- Samples every 5th pixel for performance
-- Calculates:
-  - **Brightness** → Oily score (high brightness = oily)
-  - **Saturation** → Dry score (low saturation = dry)
-  - **Balance** → Normal score (balanced parameters)
-  - **Redness** → Acne score (high red channel = acne)
+**Skin Analysis Methods:**
+
+### Face Detection (CNN-based - Deep Learning)
+- Uses MediaPipe Face Detection or TensorFlow.js face detection models
+- **NOT rule-based** - Uses Deep Learning CNN models
+- Detects face bounding boxes in real-time
+- Extracts face region for classification
+
+### Skin Classification (CNN-based - Deep Learning)
+- Uses trained CNN model from `public/models/skin-classifier/`
+- **NOT rule-based** - Uses Deep Learning CNN models
+- Model input: 128x128 RGB face image
+- Model output: 4-class probabilities [acne, normal, oily, dry]
+- Converts probabilities to scores (0-100) for each skin condition
+
+### Product Recommendation (Rule-based - HANYA ini)
+- **ONLY rule-based component** in the entire system
+- Uses keyword matching to calculate product weights from ingredients
+- Calculates recommendation score using dot product: `score = skinScores · productWeights`
+- Returns top 3 products sorted by score
 
 ---
 
@@ -220,7 +232,9 @@ Updated `package.json` with:
 - `xlsx`: ^0.18.5
 - `pdfkit`: ^0.15.0
 
-**Note:** TensorFlow packages are included for future ML integration but not currently used. The current implementation uses heuristic-based analysis.
+**Note:** TensorFlow packages are used for CNN-based face detection and skin classification. The application uses:
+- **CNN models** for face detection and skin classification (ML-based)
+- **Rule-based system** for product recommendation (keyword matching + scoring)
 
 ---
 
@@ -306,18 +320,19 @@ Updated `package.json` with:
 ## Known Limitations
 
 1. **No Authentication**: Admin dashboard is publicly accessible
-2. **Client-Side Analysis**: Uses simple heuristics, not ML models
+2. **Client-Side Analysis**: CNN models run in browser (may be slower on low-end devices)
 3. **No Image Storage**: Images are not saved to server
 4. **SQLite**: Single-file database, not suitable for high concurrency
 5. **No Validation**: Limited input validation on forms
 6. **No Error Logging**: Errors are console-logged only
 7. **No Rate Limiting**: API endpoints are unprotected
+8. **Model Loading**: CNN models need to be loaded on first use (initial delay)
 
 ---
 
 ## Future Enhancements (Out of Scope)
 
-- Implement actual TensorFlow.js face mesh detection
+- Add face recognition (identify specific users)
 - Add admin authentication
 - Store uploaded images
 - Migrate to PostgreSQL/MySQL for production
@@ -325,7 +340,8 @@ Updated `package.json` with:
 - Implement rate limiting
 - Add unit and integration tests
 - Add image preprocessing and validation
-- Implement more sophisticated ML-based skin analysis
+- Fine-tune CNN models with more training data
+- Add model versioning and A/B testing
 
 ---
 

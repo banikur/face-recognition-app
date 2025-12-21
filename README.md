@@ -1,6 +1,6 @@
 # Face Recognition Based Skincare Recommendation App
 
-A Next.js application that provides personalized skincare product recommendations based on facial analysis using heuristic skin condition detection.
+A Next.js application that provides personalized skincare product recommendations based on facial analysis using **CNN-based face recognition and detection** for skin analysis, with **rule-based product recommendation** system.
 
 ## Features
 
@@ -24,7 +24,9 @@ A Next.js application that provides personalized skincare product recommendation
 - **Frontend**: Next.js 15, React 19, TailwindCSS
 - **Backend**: Next.js API Routes
 - **Database**: SQLite with better-sqlite3
-- **Analysis**: Client-side heuristic-based skin detection
+- **Face Detection**: CNN-based using MediaPipe/TensorFlow.js
+- **Skin Classification**: CNN-based using trained skin classifier model
+- **Product Recommendation**: Rule-based (keyword matching + dot product scoring)
 - **Export**: XLSX (Excel), PDFKit (PDF)
 
 ## Installation
@@ -143,13 +145,27 @@ The system automatically calculates product weights based on ingredient keywords
 - **Normal**: Vitamin C, Niacinamide
 - **Acne**: Benzoyl Peroxide, Retinol, Salicylic Acid
 
-## Skin Analysis Heuristics
+## Skin Analysis Methods
 
-The client-side analysis uses simple image processing:
-- **Brightness**: Indicates oily skin
-- **Saturation**: Low saturation indicates dry skin
-- **Redness**: Indicates acne-prone skin
-- **Balance**: Indicates normal skin
+### Face Detection & Recognition
+- **CNN-based** (Deep Learning) using MediaPipe or TensorFlow.js models
+- Detects face bounding boxes and landmarks
+- Extracts face region for analysis
+- **NOT rule-based** - Uses trained CNN models
+
+### Skin Classification
+- **CNN-based** (Deep Learning) using trained model
+- Model located at `public/models/skin-classifier/`
+- Classifies skin into 4 categories: oily, dry, normal, acne
+- Returns confidence scores for each category
+- **NOT rule-based** - Uses trained CNN models
+
+### Product Recommendation
+- **Rule-based ONLY** (NOT ML-based) - This is the ONLY rule-based component
+- Uses keyword matching from product ingredients
+- Calculates product weights from ingredients automatically
+- Uses dot product scoring: `score = skinScores · productWeights`
+- Returns top 3 matching products
 
 ## Scripts
 
@@ -175,7 +191,8 @@ To access from other devices on the same network:
 - No authentication system (admin password can be added via ENV)
 - Images are processed client-side (not uploaded to server)
 - SQLite database for simplicity
-- Heuristic-based analysis (not ML-based)
+- **CNN-based face detection and skin classification** (ML models run in browser)
+- **Rule-based product recommendation** (keyword matching + scoring)
 
 ## License
 

@@ -118,8 +118,10 @@ npm run dev -- -p 3001
 
 ## Key Features
 
+✅ **CNN Face Detection** - AI-powered face detection using deep learning models
+✅ **CNN Skin Classification** - Machine learning-based skin condition analysis
+✅ **Rule-Based Recommendations** - Smart product matching using keyword-based scoring
 ✅ **Auto Weight Mapping** - Products automatically get weights based on ingredients
-✅ **Smart Recommendations** - Top 3 products based on skin analysis
 ✅ **Complete Admin** - Full CRUD for products
 ✅ **Reports & Export** - Excel and PDF export with statistics
 ✅ **Local Network** - Access from any device on your network

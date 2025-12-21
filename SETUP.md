@@ -16,7 +16,8 @@ This will install all required packages including:
 - better-sqlite3 for database
 - xlsx for Excel export
 - pdfkit for PDF export
-- TensorFlow.js packages (optional, for future ML integration)
+- TensorFlow.js packages for CNN-based face detection and skin classification
+- MediaPipe packages for face detection models
 
 ### 2. Initialize Database
 
@@ -181,7 +182,8 @@ After successful setup:
 2. Test the analysis with different face photos
 3. Review the reports and analytics
 4. Customize the ingredient weight mapping in `data/models.ts`
-5. Adjust the skin analysis heuristics in `src/app/capture/page.tsx`
+5. Check the CNN model loading in `src/lib/skinAnalyzer.ts`
+6. Review the roadmap in `ROADMAP.md` for implementation details
 
 ## Support
 
