@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# SSL certificates for development
+/.cert/
+
 # production
 /build
 

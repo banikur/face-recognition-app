@@ -21,13 +21,15 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-[#FAFAFA] p-6">
-      <div className="grid h-full grid-cols-[1fr_380px] gap-6">
+    <div className="flex h-full w-full flex-col bg-[#FAFAFA] p-3 sm:p-6 overflow-hidden box-border">
+      <div className="flex flex-col lg:grid lg:grid-cols-[1fr_380px] h-full gap-3 sm:gap-6 min-h-0 flex-1">
         {/* Left: Camera */}
-        <CameraPanel onCapture={handleCapture} isAnalyzing={isAnalyzing} />
+        <div className="flex-shrink-0 lg:flex-shrink min-h-0 lg:h-full">
+          <CameraPanel onCapture={handleCapture} isAnalyzing={isAnalyzing} />
+        </div>
 
-        {/* Right: Results */}
-        <div className="flex flex-col gap-4 overflow-auto">
+        {/* Right: Results - Scrollable on mobile */}
+        <div className="flex flex-col gap-4 overflow-y-auto overflow-x-hidden min-h-0 flex-1 lg:max-h-full" style={{ WebkitOverflowScrolling: 'touch' }}>
           <ResultPanel
             skinType={analysis?.skinType ?? null}
             scores={analysis?.scores ?? null}

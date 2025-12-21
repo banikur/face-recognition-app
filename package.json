@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:https": "node server.js",
+    "setup:https": "node scripts/setup-https.js",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

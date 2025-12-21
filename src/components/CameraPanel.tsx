@@ -21,6 +21,32 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Helper function to get getUserMedia with fallbacks
+  const getUserMediaWithFallback = (): ((constraints: MediaStreamConstraints) => Promise<MediaStream>) | null => {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      return navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    } else if ((navigator as any).getUserMedia) {
+      return (constraints: MediaStreamConstraints) => {
+        return new Promise((resolve, reject) => {
+          (navigator as any).getUserMedia(constraints, resolve, reject);
+        });
+      };
+    } else if ((navigator as any).webkitGetUserMedia) {
+      return (constraints: MediaStreamConstraints) => {
+        return new Promise((resolve, reject) => {
+          (navigator as any).webkitGetUserMedia(constraints, resolve, reject);
+        });
+      };
+    } else if ((navigator as any).mozGetUserMedia) {
+      return (constraints: MediaStreamConstraints) => {
+        return new Promise((resolve, reject) => {
+          (navigator as any).mozGetUserMedia(constraints, resolve, reject);
+        });
+      };
+    }
+    return null;
+  };
+
   useEffect(() => {
     // Initialize face detection model when component mounts
     const initializeModels = async () => {
@@ -41,19 +67,100 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
 
     const initCamera = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480 },
+        // Check if we're on HTTPS or localhost (required for getUserMedia)
+        // Allow local IP addresses for development
+        const isLocalhost = location.hostname === 'localhost' || 
+          location.hostname === '127.0.0.1' ||
+          location.hostname.startsWith('192.168.') ||
+          location.hostname.startsWith('10.') ||
+          location.hostname.startsWith('172.');
+        
+        const isSecureContext = window.isSecureContext || 
+          location.protocol === 'https:' || 
+          isLocalhost;
+        
+        if (!isSecureContext) {
+          throw new Error('HTTPS_REQUIRED');
+        }
+
+        // Check if getUserMedia is available with fallback
+        const getUserMedia = getUserMediaWithFallback();
+        
+        if (!getUserMedia) {
+          throw new Error('getUserMedia tidak didukung di browser ini. Pastikan menggunakan browser modern (Chrome, Firefox, Safari)');
+        }
+
+        // Check if mobile device
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        
+        // More flexible constraints for mobile
+        const constraints: MediaStreamConstraints = {
+          video: isMobile ? {
+            facingMode: { ideal: 'user' },
+            width: { ideal: 640, max: 1280 },
+            height: { ideal: 480, max: 720 }
+          } : {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user'
+          },
           audio: false
-        });
+        };
+
+        stream = await getUserMedia(constraints);
+        
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-          setCameraReady(true);
-          setError(null);
+          
+          // Set attributes for mobile compatibility
+          videoRef.current.setAttribute('playsinline', 'true');
+          videoRef.current.muted = true;
+          
+          try {
+            await videoRef.current.play();
+            setCameraReady(true);
+            setError(null);
+          } catch (playError) {
+            console.error('Video play error:', playError);
+            // Try to play again after a short delay
+            setTimeout(async () => {
+              if (videoRef.current) {
+                try {
+                  await videoRef.current.play();
+                  setCameraReady(true);
+                  setError(null);
+                } catch (retryError) {
+                  console.error('Video play retry error:', retryError);
+                  setError('Gagal memutar video kamera');
+                  setCameraReady(false);
+                }
+              }
+            }, 100);
+          }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Camera init error:', err);
-        setError('Gagal mengakses kamera');
+        
+        // More specific error messages
+        let errorMessage = 'Gagal mengakses kamera';
+        
+        if (err.message === 'HTTPS_REQUIRED') {
+          errorMessage = 'Akses kamera memerlukan HTTPS. Pastikan mengakses melalui HTTPS atau gunakan localhost. Jika mengakses via IP, gunakan https:// atau setup SSL certificate.';
+        } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          errorMessage = 'Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser.';
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          errorMessage = 'Kamera tidak ditemukan. Pastikan perangkat memiliki kamera.';
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+          errorMessage = 'Kamera sedang digunakan aplikasi lain. Tutup aplikasi lain yang menggunakan kamera.';
+        } else if (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError') {
+          errorMessage = 'Kamera tidak mendukung pengaturan yang diminta.';
+        } else if (err.name === 'SecurityError') {
+          errorMessage = 'Akses kamera diblokir. Pastikan menggunakan HTTPS atau localhost.';
+        } else if (err.message) {
+          errorMessage = err.message;
+        }
+        
+        setError(errorMessage);
         setCameraReady(false);
       }
     };
@@ -93,8 +200,8 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return { skinType: 'Error', scores: { oily: 0, dry: 0, normal: 0, acne: 0 }, faceDetected: false };
 
-    // Use 4:5 aspect ratio for better face detection (consistent with UI)
-    const targetAspectRatio = 4 / 5; // 4:5 ratio
+    // Use 9:14 aspect ratio for better face detection (consistent with UI)
+    const targetAspectRatio = 9 / 14; // 9:14 ratio
     const canvasAspectRatio = canvas.width / canvas.height;
 
     let drawWidth, drawHeight, sx, sy;
@@ -190,37 +297,43 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   };
 
   return (
-    <section className="flex h-full flex-col rounded-xl border border-[#E5E7EB] bg-white p-4">
+    <section className="flex h-full max-h-[60vh] lg:max-h-full flex-col rounded-xl border border-[#E5E7EB] bg-white p-2 sm:p-4 min-h-0 overflow-hidden">
       {/* Mode Toggle */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2 sm:mb-3 flex-shrink-0">
         <div className="flex gap-2">
           <button
             onClick={() => { setMode('camera'); setUploadedImage(null); }}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${mode === 'camera' ? 'bg-[#3B82F6] text-white' : 'bg-[#F3F4F6] text-[#111]/70'
+            className={`px-3 py-1.5 sm:px-3 sm:py-1.5 text-xs font-medium rounded-lg transition touch-manipulation ${mode === 'camera' ? 'bg-[#3B82F6] text-white' : 'bg-[#F3F4F6] text-[#111]/70'
               }`}
           >
             📷 Kamera
           </button>
           <button
             onClick={() => setMode('upload')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${mode === 'upload' ? 'bg-[#3B82F6] text-white' : 'bg-[#F3F4F6] text-[#111]/70'
+            className={`px-3 py-1.5 sm:px-3 sm:py-1.5 text-xs font-medium rounded-lg transition touch-manipulation ${mode === 'upload' ? 'bg-[#3B82F6] text-white' : 'bg-[#F3F4F6] text-[#111]/70'
               }`}
           >
             📁 Upload
           </button>
         </div>
-        <span className="text-xs text-[#111]/40">
+        <span className="text-xs text-[#111]/40 hidden sm:inline">
           {mode === 'camera' ? 'Live Capture' : 'Upload Gambar'}
         </span>
       </div>
 
-      {/* Content Area - Using flex container with 4:5 aspect ratio */}
-      <div className="flex-1 flex flex-col relative">
-        <div className="relative flex-1 flex items-center justify-center rounded-lg bg-[#111] max-w-full">
-          <div className="w-full h-full max-h-full max-w-full aspect-[4/5] relative overflow-hidden rounded-lg">
+        {/* Content Area - Using flex container with 9:14 aspect ratio */}
+      <div className="flex-1 flex flex-col relative items-center justify-center min-h-0">
+        <div className="relative w-full max-w-full sm:max-w-md mx-auto flex items-center justify-center rounded-lg bg-[#111]">
+          <div className="w-full max-w-full sm:max-w-md aspect-[9/14] relative overflow-hidden rounded-lg">
             {mode === 'camera' ? (
               <>
-                <video ref={videoRef} className="absolute inset-0 w-full h-full object-contain" playsInline muted />
+                <video 
+                  ref={videoRef} 
+                  className="absolute inset-0 w-full h-full object-cover" 
+                  playsInline 
+                  muted 
+                  autoPlay
+                />
                 {!cameraReady && !error && (
                   <div className="absolute inset-0 flex items-center justify-center text-sm text-white/60">
                     Mengaktifkan kamera...
@@ -230,7 +343,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
             ) : (
               <>
                 {uploadedImage ? (
-                  <img src={uploadedImage} alt="Uploaded" className="absolute inset-0 w-full h-full object-contain bg-black" />
+                  <img src={uploadedImage} alt="Uploaded" className="absolute inset-0 w-full h-full object-cover bg-black" />
                 ) : (
                   <div
                     onClick={() => fileInputRef.current?.click()}
@@ -244,8 +357,80 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
             )}
 
             {error && (
-              <div className="absolute inset-0 flex items-center justify-center text-sm text-red-400">
-                {error}
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-sm text-red-400 p-4 text-center z-30">
+                <p className="mb-4">{error}</p>
+                <button
+                  onClick={() => {
+                    setError(null);
+                    setCameraReady(false);
+                    // Retry camera initialization
+                    if (mode === 'camera') {
+                      const retryInit = async () => {
+                        try {
+                          const isSecureContext = window.isSecureContext || 
+                            location.protocol === 'https:' || 
+                            location.hostname === 'localhost' || 
+                            location.hostname === '127.0.0.1';
+                          
+                          if (!isSecureContext) {
+                            throw new Error('HTTPS_REQUIRED');
+                          }
+
+                          const getUserMedia = getUserMediaWithFallback();
+                          if (!getUserMedia) {
+                            throw new Error('getUserMedia tidak didukung di browser ini. Pastikan menggunakan browser modern (Chrome, Firefox, Safari)');
+                          }
+
+                          const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                          const constraints: MediaStreamConstraints = {
+                            video: isMobile ? {
+                              facingMode: { ideal: 'user' },
+                              width: { ideal: 640, max: 1280 },
+                              height: { ideal: 480, max: 720 }
+                            } : {
+                              width: { ideal: 1280 },
+                              height: { ideal: 720 },
+                              facingMode: 'user'
+                            },
+                            audio: false
+                          };
+
+                          const stream = await getUserMedia(constraints);
+                          if (videoRef.current) {
+                            videoRef.current.srcObject = stream;
+                            videoRef.current.setAttribute('playsinline', 'true');
+                            videoRef.current.muted = true;
+                            await videoRef.current.play();
+                            setCameraReady(true);
+                            setError(null);
+                          }
+                        } catch (err: any) {
+                          console.error('Camera retry error:', err);
+                          let errorMessage = 'Gagal mengakses kamera';
+                          
+                          if (err.message === 'HTTPS_REQUIRED') {
+                            errorMessage = 'Akses kamera memerlukan HTTPS. Pastikan mengakses melalui HTTPS atau gunakan localhost. Jika mengakses via IP, gunakan https:// atau setup SSL certificate.';
+                          } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                            errorMessage = 'Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser.';
+                          } else if (err.name === 'NotFoundError') {
+                            errorMessage = 'Kamera tidak ditemukan.';
+                          } else if (err.name === 'NotReadableError') {
+                            errorMessage = 'Kamera sedang digunakan aplikasi lain.';
+                          } else if (err.name === 'SecurityError') {
+                            errorMessage = 'Akses kamera diblokir. Pastikan menggunakan HTTPS atau localhost.';
+                          } else if (err.message) {
+                            errorMessage = err.message;
+                          }
+                          setError(errorMessage);
+                        }
+                      };
+                      retryInit();
+                    }
+                  }}
+                  className="px-4 py-2 bg-[#3B82F6] text-white rounded-lg text-sm font-medium touch-manipulation"
+                >
+                  Coba Lagi
+                </button>
               </div>
             )}
 
@@ -265,7 +450,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
         <button
           disabled={isAnalyzing || (mode === 'camera' && !cameraReady) || (mode === 'upload' && !uploadedImage)}
           onClick={handleCapture}
-          className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-[#3B82F6] text-white shadow-lg transition hover:bg-[#2563EB] disabled:opacity-40 absolute bottom-4 left-1/2 -translate-x-1/2 z-20"
+          className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full border-4 border-white bg-[#3B82F6] text-white shadow-lg transition active:bg-[#2563EB] hover:bg-[#2563EB] disabled:opacity-40 absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 touch-manipulation"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="12" cy="12" r="8" />

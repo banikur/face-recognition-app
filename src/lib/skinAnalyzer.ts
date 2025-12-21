@@ -37,8 +37,8 @@ function captureFrame(video: HTMLVideoElement): { imageData: ImageData; base64: 
     canvas.height = IMG_SIZE;
 
     // Calculate aspect ratio to center the face properly for detection
-    // Use 4:5 aspect ratio for better face positioning (consistent with UI)
-    const targetAspectRatio = 4 / 5; // 4:5 ratio
+    // Use 9:14 aspect ratio for better face positioning (consistent with UI)
+    const targetAspectRatio = 9 / 14; // 9:14 ratio
     const videoAspectRatio = video.videoWidth / video.videoHeight;
 
     let drawWidth, drawHeight, sx, sy;
