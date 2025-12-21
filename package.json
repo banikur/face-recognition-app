@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "init-db": "npx tsx data/init.ts",
-    "inject-data": "npx tsx data/inject-data.ts"
+    "inject-data": "npx tsx data/inject-data.ts",
+    "train-model": "npx tsx scripts/train-skin-model.ts"
   },
   "dependencies": {
     "@mediapipe/face_mesh": "^0.4.1633559619",
@@ -22,6 +23,7 @@
     "pdfkit": "^0.15.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "sharp": "^0.33.5",
     "sqlite3": "^5.1.7",
     "xlsx": "^0.18.5"
   },

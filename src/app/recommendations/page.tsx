@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { getAllProducts, getProductsBySkinTypeId, createAnalysisLog } from '@/data/models';
 
 interface Product {
   id: number;
   name: string;
   brand: string;
-  skin_type_id: number;
   description: string;
   ingredients: string;
+  w_oily: number;
+  w_dry: number;
+  w_normal: number;
+  w_acne: number;
 }
 
 export default function Recommendations() {
@@ -22,107 +24,87 @@ export default function Recommendations() {
 
   useEffect(() => {
     if (!skinCondition) {
-      router.push('/face-recognition');
+      router.push('/');
       return;
     }
 
-    // Map skin condition to skin type ID
-    const skinTypeMap: Record<string, number> = {
-      'Oily': 1,
-      'Dry': 2,
-      'Normal': 3,
-      'Combination': 4,
-      'Acne-prone': 5
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch('/api/products');
+        const allProducts: Product[] = await res.json();
+
+        // Sort by weight matching skin condition
+        const conditionKey = `w_${skinCondition.toLowerCase()}` as keyof Product;
+        const sorted = allProducts
+          .filter(p => typeof p[conditionKey] === 'number' && (p[conditionKey] as number) > 0)
+          .sort((a, b) => (b[conditionKey] as number) - (a[conditionKey] as number))
+          .slice(0, 6); // Top 6
+
+        setProducts(sorted);
+      } catch (error) {
+        console.error('Error fetching recommendations:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    const skinTypeId = skinTypeMap[skinCondition] || 3; // Default to Normal
-
-    try {
-      // Get products for the detected skin type
-      const recommendedProducts = getProductsBySkinTypeId(skinTypeId);
-      setProducts(recommendedProducts);
-
-      // Save analysis log (for guest user, user_id is null)
-      createAnalysisLog({
-        user_id: null,
-        skin_condition_detected: skinCondition,
-        recommended_product_id: recommendedProducts.length > 0 ? recommendedProducts[0].id : 0
-      });
-    } catch (error) {
-      console.error('Error fetching recommendations:', error);
-    } finally {
-      setLoading(false);
-    }
+    fetchProducts();
   }, [skinCondition, router]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="text-center">
-            <p>Loading recommendations...</p>
-          </div>
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#3B82F6]/30 border-t-[#3B82F6] mx-auto"></div>
+          <p className="mt-3 text-[#111]/60">Memuat rekomendasi...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-[#FAFAFA] py-8">
       <div className="max-w-4xl mx-auto px-4">
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Product Recommendations</h1>
-          <p className="text-gray-600">
-            Based on your <span className="font-semibold text-blue-600">{skinCondition}</span> skin condition
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold text-[#111]">Rekomendasi Produk</h1>
+          <p className="text-[#111]/60 mt-1">
+            Untuk kulit <span className="font-semibold text-[#3B82F6]">{skinCondition}</span>
           </p>
         </div>
 
         {products.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {products.map((product) => (
-              <div key={product.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900">{product.name}</h3>
-                      <p className="text-gray-600">{product.brand}</p>
-                    </div>
-                    <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                      Recommended
-                    </span>
+              <div key={product.id} className="bg-white rounded-xl border border-[#E5E7EB] p-4 hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-semibold text-[#111]">{product.name}</h3>
+                    <p className="text-sm text-[#111]/60">{product.brand}</p>
                   </div>
-                  <p className="mt-3 text-gray-600">{product.description}</p>
-                  <div className="mt-4">
-                    <h4 className="font-medium text-gray-900">Key Ingredients:</h4>
-                    <p className="text-gray-600 text-sm">{product.ingredients}</p>
-                  </div>
-                  <div className="mt-6">
-                    <button className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
-                      View Details
-                    </button>
-                  </div>
+                  <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-xs font-medium px-2 py-1 rounded">
+                    Match
+                  </span>
+                </div>
+                <p className="mt-3 text-sm text-[#111]/70">{product.description}</p>
+                <div className="mt-3">
+                  <p className="text-xs text-[#111]/50">Ingredients:</p>
+                  <p className="text-xs text-[#111]/70 line-clamp-2">{product.ingredients}</p>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-md p-8 text-center">
-            <p className="text-gray-600">No recommendations found for your skin condition.</p>
-            <button
-              onClick={() => router.push('/face-recognition')}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-            >
-              Try Again
-            </button>
+          <div className="bg-white rounded-xl border border-[#E5E7EB] p-8 text-center">
+            <p className="text-[#111]/60">Tidak ada rekomendasi untuk kondisi kulit ini.</p>
           </div>
         )}
 
         <div className="mt-8 text-center">
           <button
-            onClick={() => router.push('/face-recognition')}
-            className="px-4 py-2 text-blue-600 font-medium rounded-lg hover:text-blue-800 focus:outline-none"
+            onClick={() => router.push('/')}
+            className="px-4 py-2 text-[#3B82F6] font-medium hover:text-[#2563EB]"
           >
-            ← Back to Analysis
+            ← Kembali ke Analisis
           </button>
         </div>
       </div>

@@ -5,7 +5,7 @@ import Database from "better-sqlite3";
 export const auth = betterAuth({
   secret: (process.env.BETTER_AUTH_SECRET as string) || "dev_secret",
   baseURL: (process.env.BETTER_AUTH_URL as string) || "http://localhost:3000",
-  database: new Database("./data/auth.db"),
+  database: new Database("./data/database.db"),
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,

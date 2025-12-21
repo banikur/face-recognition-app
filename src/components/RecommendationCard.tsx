@@ -9,10 +9,17 @@ interface Product {
   description: string;
 }
 
-export default function RecommendationCard() {
+interface Props {
+  skinType: string;
+}
+
+export default function RecommendationCard({ skinType }: Props) {
   const [items, setItems] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       try {
         const res = await fetch("/api/products", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to fetch products");
@@ -21,35 +28,40 @@ export default function RecommendationCard() {
       } catch {
         setItems([]);
       }
+      setLoading(false);
     };
     load();
-  }, []);
+  }, [skinType]);
 
   return (
-    <section className="flex-1 rounded-2xl border border-white/60 bg-gradient-to-b from-white to-zinc-50 p-6 shadow-md shadow-zinc-200/80">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Rekomendasi sabun muka</p>
-          <h2 className="text-xl font-semibold text-zinc-900">Kurasi ahli</h2>
-        </div>
-        <span className="text-xs text-zinc-500">Top 3</span>
-      </div>
-      <div className="flex flex-col gap-3">
-        {items.length > 0 ? (
+    <section className="flex-1 rounded-xl border border-[#E5E7EB] bg-white p-4">
+      <h2 className="text-sm font-semibold text-[#111]">Rekomendasi Sabun Wajah</h2>
+      <p className="text-xs text-[#111]/50">Untuk kulit {skinType}</p>
+
+      <div className="mt-3 space-y-2">
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-[#111]/50">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#3B82F6]/30 border-t-[#3B82F6]"></div>
+            <span>Memuat rekomendasi...</span>
+          </div>
+        ) : items.length > 0 ? (
           items.map((p) => (
-            <article key={p.id} className="rounded-2xl border border-zinc-100/80 bg-white/90 p-4 shadow-sm shadow-zinc-300/40">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-zinc-900">{p.name}</p>
-                  <p className="text-xs uppercase tracking-wide text-zinc-500">{p.brand}</p>
-                </div>
-                <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-500">Gentle</span>
+            <article key={p.id} className="flex items-start gap-3 rounded-lg border border-[#E5E7EB] p-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#3B82F6]/10 text-[#3B82F6]">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 3h6l2 4H7l2-4z" />
+                  <path d="M7 7v10a2 2 0 002 2h6a2 2 0 002-2V7" />
+                </svg>
               </div>
-              <p className="mt-3 text-sm text-zinc-600 line-clamp-3">{p.description}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-[#111]">{p.name}</p>
+                <p className="text-xs text-[#111]/50">{p.brand}</p>
+                <p className="mt-1 text-xs text-[#111]/60 line-clamp-1">{p.description}</p>
+              </div>
             </article>
           ))
         ) : (
-          <div className="rounded-xl border border-dashed border-zinc-200 bg-white/70 px-4 py-6 text-center text-sm text-zinc-500">
+          <div className="rounded-lg border border-dashed border-[#E5E7EB] px-4 py-6 text-center text-xs text-[#111]/50">
             Belum ada rekomendasi.
           </div>
         )}

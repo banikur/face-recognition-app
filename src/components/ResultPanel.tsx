@@ -10,9 +10,11 @@ interface Scores {
 interface Props {
   skinType: string | null;
   scores: Scores | null;
+  isAnalyzing?: boolean;
+  faceDetected?: boolean;
 }
 
-export default function ResultPanel({ skinType, scores }: Props) {
+export default function ResultPanel({ skinType, scores, isAnalyzing = false, faceDetected }: Props) {
   const scoreEntries = [
     { label: "Oily", key: "oily" },
     { label: "Dry", key: "dry" },
@@ -21,43 +23,56 @@ export default function ResultPanel({ skinType, scores }: Props) {
   ] as const;
 
   return (
-    <section className="rounded-2xl border border-white/60 bg-gradient-to-b from-white to-zinc-50 p-6 shadow-md shadow-zinc-200/80">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-xs uppercase tracking-wide text-zinc-500">Skin analyzer</div>
-          <h2 className="text-xl font-semibold text-zinc-900">Hasil terpilih</h2>
+    <section className="rounded-xl border border-[#E5E7EB] bg-white p-4">
+      <h2 className="text-sm font-semibold text-[#111]">Hasil Terpilih</h2>
+
+      {isAnalyzing ? (
+        <div className="mt-4 flex items-center gap-3 text-sm text-[#111]/50">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#3B82F6]/30 border-t-[#3B82F6]"></div>
+          <span>Menganalisis dengan MediaPipe...</span>
         </div>
-        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-600 shadow-inner">Live</span>
-      </div>
-      <div className="mt-4 grid grid-cols-12 gap-4">
-        <div className="col-span-5 rounded-2xl bg-white/80 p-4 shadow-inner">
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Skin type</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-900">{skinType ?? "—"}</p>
-          <p className="mt-1 text-sm text-zinc-500">Akurasi realtime dari kamera</p>
+      ) : skinType && faceDetected ? (
+        <>
+          <div className="mt-4 flex items-center gap-3">
+            <span className="text-xs text-[#111]/50">Skin Type</span>
+            <span className="rounded-full bg-[#3B82F6] px-3 py-1 text-xs font-medium text-white">
+              {skinType}
+            </span>
+          </div>
+
+          <div className="mt-5">
+            <span className="text-xs text-[#111]/50">Score Layers</span>
+            <ul className="mt-2 space-y-2">
+              {scoreEntries.map(({ label, key }) => {
+                const value = scores?.[key] ?? 0;
+                return (
+                  <li key={key} className="flex items-center gap-3">
+                    <span className="w-14 text-xs text-[#111]/70">{label}</span>
+                    <div className="flex-1 h-2 rounded-full bg-[#E5E7EB]">
+                      <div
+                        className="h-2 rounded-full bg-[#3B82F6] transition-all"
+                        style={{ width: `${value}%` }}
+                      />
+                    </div>
+                    <span className="w-10 text-right text-xs font-medium text-[#111]">
+                      {`${value}%`}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </>
+      ) : skinType && !faceDetected ? (
+        <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          <p className="font-medium">Wajah tidak terdeteksi</p>
+          <p className="text-xs mt-1">Pastikan wajah terlihat jelas di kamera</p>
         </div>
-        <div className="col-span-7 rounded-2xl bg-white/80 p-4 shadow-inner">
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Score layers</p>
-          <ul className="mt-3 space-y-3">
-            {scoreEntries.map(({ label, key }) => {
-              const value = scores?.[key] ?? 0;
-              return (
-                <li key={key} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm text-zinc-600">
-                    <span>{label}</span>
-                    <span className="font-medium text-zinc-900">{scores ? `${value}%` : "—"}</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-zinc-100">
-                    <div
-                      className="h-2 rounded-full bg-gradient-to-r from-zinc-800 to-zinc-500 transition-all"
-                      style={{ width: `${value}%` }}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </div>
+      ) : (
+        <p className="mt-4 text-sm text-[#111]/40">
+          Tekan tombol capture untuk memulai analisis AI
+        </p>
+      )}
     </section>
   );
 }

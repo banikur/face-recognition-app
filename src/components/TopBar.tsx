@@ -4,19 +4,19 @@ import Link from "next/link";
 
 export default function TopBar() {
   return (
-    <header className="h-16 w-full border-b border-white/60 bg-white/70 backdrop-blur-md">
-      <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-6">
-        <Link href="/" className="text-sm font-semibold text-zinc-900">
-          Skin Analyzer
+    <header className="h-14 w-full border-b border-[#E5E7EB] bg-white">
+      <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-6">
+        <Link href="/" className="text-lg font-semibold text-[#111]">
+          SkinLab
         </Link>
-        <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-500">
-          <Link href="/face-recognition" className="rounded-full bg-white/70 px-3 py-1 shadow-sm shadow-white/60">
+        <nav className="flex items-center gap-6 text-sm">
+          <Link href="/" className="font-medium text-[#3B82F6]">
             Live Scan
           </Link>
-          <Link href="/recommendations" className="rounded-full px-3 py-1 text-zinc-500">
+          <Link href="/products" className="text-[#111]/60 hover:text-[#111]">
             Products
           </Link>
-        </div>
+        </nav>
       </div>
     </header>
   );

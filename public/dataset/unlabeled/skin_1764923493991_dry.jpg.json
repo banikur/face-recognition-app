@@ -1,0 +1,12 @@
+{
+  "filename": "skin_1764923493991_dry.jpg",
+  "timestamp": 1764923493991,
+  "skinType": "Dry",
+  "scores": {
+    "acne": 32,
+    "normal": 56,
+    "oily": 55,
+    "dry": 68
+  },
+  "labeled": false
+}
