@@ -148,23 +148,27 @@ The system automatically calculates product weights based on ingredient keywords
 ## Skin Analysis Methods
 
 ### Face Detection & Recognition
-- **CNN-based** (Deep Learning) using MediaPipe or TensorFlow.js models
+- **CNN-based** (Deep Learning) using MediaPipe TensorFlow.js model
 - Detects face bounding boxes and landmarks
-- Extracts face region for analysis
-- **NOT rule-based** - Uses trained CNN models
+- Runs entirely in browser (WebGL backend)
+- Confidence threshold: 0.2
 
 ### Skin Classification
-- **CNN-based** (Deep Learning) using trained model
-- Model located at `public/models/skin-classifier/`
-- Classifies skin into 4 categories: oily, dry, normal, acne
-- Returns confidence scores for each category
-- **NOT rule-based** - Uses trained CNN models
+- **CNN-based** (Deep Learning) using custom trained TensorFlow.js model
+- Architecture: Conv2D(32) → MaxPool → Conv2D(64) → MaxPool → Conv2D(128) → GlobalAvgPool → Dense(64) → Softmax(4)
+- Model located at `public/models/skin-classifier/tfjs/`
+- Input: 128×128 RGB image, normalized to [-1, 1]
+- Output: Softmax probabilities for 4 classes (acne, normal, oily, dry)
+
+**Limitations (Academic Disclosure):**
+- Training dataset: ~135 images (small sample size)
+- Class distribution: primarily acne/normal, limited oily/dry samples
+- No clinical validation performed
+- Results should not be used for medical diagnosis
 
 ### Product Recommendation
-- **Rule-based ONLY** (NOT ML-based) - This is the ONLY rule-based component
-- Uses keyword matching from product ingredients
-- Calculates product weights from ingredients automatically
-- Uses dot product scoring: `score = skinScores · productWeights`
+- **Rule-based** (keyword matching + dot product scoring)
+- Uses ingredient-based weight mapping
 - Returns top 3 matching products
 
 ## Scripts

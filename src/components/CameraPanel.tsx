@@ -20,6 +20,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   const [cameraReady, setCameraReady] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
 
   // Helper function to get getUserMedia with fallbacks
   const getUserMediaWithFallback = (): ((constraints: MediaStreamConstraints) => Promise<MediaStream>) | null => {
@@ -69,30 +70,30 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
       try {
         // Check if we're on HTTPS or localhost (required for getUserMedia)
         // Allow local IP addresses for development
-        const isLocalhost = location.hostname === 'localhost' || 
+        const isLocalhost = location.hostname === 'localhost' ||
           location.hostname === '127.0.0.1' ||
           location.hostname.startsWith('192.168.') ||
           location.hostname.startsWith('10.') ||
           location.hostname.startsWith('172.');
-        
-        const isSecureContext = window.isSecureContext || 
-          location.protocol === 'https:' || 
+
+        const isSecureContext = window.isSecureContext ||
+          location.protocol === 'https:' ||
           isLocalhost;
-        
+
         if (!isSecureContext) {
           throw new Error('HTTPS_REQUIRED');
         }
 
         // Check if getUserMedia is available with fallback
         const getUserMedia = getUserMediaWithFallback();
-        
+
         if (!getUserMedia) {
           throw new Error('getUserMedia tidak didukung di browser ini. Pastikan menggunakan browser modern (Chrome, Firefox, Safari)');
         }
 
         // Check if mobile device
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        
+
         // More flexible constraints for mobile
         const constraints: MediaStreamConstraints = {
           video: isMobile ? {
@@ -108,14 +109,14 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
         };
 
         stream = await getUserMedia(constraints);
-        
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          
+
           // Set attributes for mobile compatibility
           videoRef.current.setAttribute('playsinline', 'true');
           videoRef.current.muted = true;
-          
+
           try {
             await videoRef.current.play();
             setCameraReady(true);
@@ -140,10 +141,10 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
         }
       } catch (err: any) {
         console.error('Camera init error:', err);
-        
+
         // More specific error messages
         let errorMessage = 'Gagal mengakses kamera';
-        
+
         if (err.message === 'HTTPS_REQUIRED') {
           errorMessage = 'Akses kamera memerlukan HTTPS. Pastikan mengakses melalui HTTPS atau gunakan localhost. Jika mengakses via IP, gunakan https:// atau setup SSL certificate.';
         } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -159,7 +160,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
         } else if (err.message) {
           errorMessage = err.message;
         }
-        
+
         setError(errorMessage);
         setCameraReady(false);
       }
@@ -201,19 +202,17 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
     if (!ctx) return { skinType: 'Error', scores: { oily: 0, dry: 0, normal: 0, acne: 0 }, faceDetected: false };
 
     // Use 9:14 aspect ratio for better face detection (consistent with UI)
-    const targetAspectRatio = 9 / 14; // 9:14 ratio
+    const targetAspectRatio = 9 / 14;
     const canvasAspectRatio = canvas.width / canvas.height;
 
     let drawWidth, drawHeight, sx, sy;
 
     if (canvasAspectRatio > targetAspectRatio) {
-      // Canvas is wider than target - letterbox (black bars on sides)
       drawHeight = canvas.height;
       drawWidth = canvas.height * targetAspectRatio;
       sx = (canvas.width - drawWidth) / 2;
       sy = 0;
     } else {
-      // Canvas is taller than target - pillarbox (black bars on top/bottom)
       drawWidth = canvas.width;
       drawHeight = canvas.width / targetAspectRatio;
       sx = 0;
@@ -226,50 +225,33 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
     const tempCtx = tempCanvas.getContext('2d')!;
     tempCtx.drawImage(canvas, sx, sy, drawWidth, drawHeight, 0, 0, 128, 128);
 
-    // Use CNN face detection for uploaded images too with proper aspect ratio
+    // Use CNN face detection for uploaded images
     const detectionResult = await detectFaces(canvas);
-    const faceDetected = detectionResult.faceDetected && detectionResult.confidence > 0.2; // Using lower threshold
+    const faceDetected = detectionResult.faceDetected && detectionResult.confidence > 0.2;
 
     if (!faceDetected) {
       return { skinType: 'Unknown', scores: { oily: 0, dry: 0, normal: 0, acne: 0 }, faceDetected: false };
     }
 
+    // CNN-based skin classification (replaces heuristic)
     const imageData = tempCtx.getImageData(0, 0, 128, 128);
 
-    // Analyze features
-    let totalBrightness = 0, totalRedness = 0, totalSat = 0;
-    const brightnessVals: number[] = [];
-    const total = 128 * 128;
+    try {
+      const { classifySkin, probabilitiesToScores, formatLabel } = await import('@/lib/cnnSkinClassifier');
+      const prediction = await classifySkin(imageData);
+      const scores = probabilitiesToScores(prediction.probabilities);
 
-    for (let i = 0; i < imageData.data.length; i += 4) {
-      const r = imageData.data[i], g = imageData.data[i + 1], b = imageData.data[i + 2];
-      const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
-      brightnessVals.push(brightness);
-      totalBrightness += brightness;
-      totalRedness += Math.max(0, (r - g) / 255);
-      const max = Math.max(r, g, b), min = Math.min(r, g, b);
-      totalSat += max === 0 ? 0 : (max - min) / max;
+      return {
+        skinType: formatLabel(prediction.label),
+        scores,
+        faceDetected: true,
+        imageData: tempCanvas.toDataURL('image/jpeg', 0.8),
+        confidence: Math.round(prediction.confidence * 100),
+      };
+    } catch (error) {
+      console.error('CNN classification error:', error);
+      return { skinType: 'Error', scores: { oily: 0, dry: 0, normal: 0, acne: 0 }, faceDetected: false };
     }
-
-    const avgB = totalBrightness / total;
-    const avgR = totalRedness / total;
-    const avgS = totalSat / total;
-    let variance = 0;
-    for (const b of brightnessVals) variance += (b - avgB) ** 2;
-    variance = Math.sqrt(variance / total);
-
-    const scores = {
-      acne: Math.round(Math.min(100, Math.max(0, avgR * 250 + (variance > 30 ? 20 : 0)))),
-      normal: Math.round(Math.min(100, Math.max(0, 70 - Math.abs(avgB - 128) * 0.3 + avgS * 30))),
-      oily: Math.round(Math.min(100, Math.max(0, (avgB / 255) * 50 + (1 - variance / 80) * 50))),
-      dry: Math.round(Math.min(100, Math.max(0, (1 - avgS) * 50 + (variance / 80) * 50))),
-    };
-
-    const entries = Object.entries(scores) as [keyof typeof scores, number][];
-    entries.sort((a, b) => b[1] - a[1]);
-    const skinType = entries[0][0].charAt(0).toUpperCase() + entries[0][0].slice(1);
-
-    return { skinType, scores, faceDetected: true, imageData: tempCanvas.toDataURL('image/jpeg', 0.8) };
   };
 
   const saveToDataset = async (result: AnalysisResult) => {
@@ -286,14 +268,42 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setUploadedImage(ev.target?.result as string);
-        setError(null);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+
+    // Validate type
+    if (!allowedTypes.includes(file.type)) {
+      setError('Hanya boleh mengunggah file JPG atau PNG.');
+      setUploadedImage(null);
+      e.target.value = '';
+      return;
     }
+
+    // Validate size
+    if (file.size > MAX_FILE_SIZE) {
+      setError('Ukuran file melebihi 3MB. Pilih file yang lebih kecil.');
+      setUploadedImage(null);
+      e.target.value = '';
+      return;
+    }
+
+    setUploadLoading(true);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setUploadedImage(ev.target?.result as string);
+      setError(null);
+      setUploadLoading(false);
+      e.target.value = '';
+    };
+    reader.onerror = () => {
+      setError('Gagal membaca file. Coba lagi.');
+      setUploadedImage(null);
+      setUploadLoading(false);
+      e.target.value = '';
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -321,17 +331,17 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
         </span>
       </div>
 
-        {/* Content Area - Using flex container with 9:14 aspect ratio */}
+      {/* Content Area - Using flex container with 9:14 aspect ratio */}
       <div className="flex-1 flex flex-col relative items-center justify-center min-h-0">
         <div className="relative w-full max-w-full sm:max-w-md mx-auto flex items-center justify-center rounded-lg bg-[#111]">
           <div className="w-full max-w-full sm:max-w-md aspect-[9/14] relative overflow-hidden rounded-lg">
             {mode === 'camera' ? (
               <>
-                <video 
-                  ref={videoRef} 
-                  className="absolute inset-0 w-full h-full object-cover" 
-                  playsInline 
-                  muted 
+                <video
+                  ref={videoRef}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  playsInline
+                  muted
                   autoPlay
                 />
                 {!cameraReady && !error && (
@@ -351,9 +361,17 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                   >
                     <span className="text-4xl mb-2">📷</span>
                     <span className="text-sm">Klik untuk upload gambar</span>
+                    <span className="text-xs mt-2 opacity-80">JPG/PNG, max 3MB</span>
                   </div>
                 )}
               </>
+            )}
+
+            {uploadLoading && mode === 'upload' && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white text-sm">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/30 border-t-white"></div>
+                <p className="mt-2">Memuat gambar...</p>
+              </div>
             )}
 
             {error && (
@@ -367,11 +385,11 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                     if (mode === 'camera') {
                       const retryInit = async () => {
                         try {
-                          const isSecureContext = window.isSecureContext || 
-                            location.protocol === 'https:' || 
-                            location.hostname === 'localhost' || 
+                          const isSecureContext = window.isSecureContext ||
+                            location.protocol === 'https:' ||
+                            location.hostname === 'localhost' ||
                             location.hostname === '127.0.0.1';
-                          
+
                           if (!isSecureContext) {
                             throw new Error('HTTPS_REQUIRED');
                           }
@@ -407,7 +425,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                         } catch (err: any) {
                           console.error('Camera retry error:', err);
                           let errorMessage = 'Gagal mengakses kamera';
-                          
+
                           if (err.message === 'HTTPS_REQUIRED') {
                             errorMessage = 'Akses kamera memerlukan HTTPS. Pastikan mengakses melalui HTTPS atau gunakan localhost. Jika mengakses via IP, gunakan https:// atau setup SSL certificate.';
                           } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -445,10 +463,19 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
 
         {/* Hidden canvas for upload analysis */}
         <canvas ref={canvasRef} className="hidden" />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg"
+          className="hidden"
+          onChange={handleFileChange}
+          aria-label="Upload image"
+          disabled={uploadLoading || isAnalyzing}
+        />
 
         {/* Capture/Analyze Button - Positioned properly */}
         <button
-          disabled={isAnalyzing || (mode === 'camera' && !cameraReady) || (mode === 'upload' && !uploadedImage)}
+          disabled={isAnalyzing || uploadLoading || (mode === 'camera' && !cameraReady) || (mode === 'upload' && !uploadedImage)}
           onClick={handleCapture}
           className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full border-4 border-white bg-[#3B82F6] text-white shadow-lg transition active:bg-[#2563EB] hover:bg-[#2563EB] disabled:opacity-40 absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 touch-manipulation"
         >

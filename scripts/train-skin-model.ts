@@ -208,9 +208,16 @@ async function train() {
         },
     });
 
-    // Save
+    // Save model in multiple formats
     await fs.promises.mkdir(CONFIG.modelSavePath, { recursive: true });
-    await model.save(`file://${CONFIG.modelSavePath}`);
+
+    // Save TensorFlow.js format (for browser inference)
+    const tfjsPath = path.join(CONFIG.modelSavePath, 'tfjs');
+    await fs.promises.mkdir(tfjsPath, { recursive: true });
+    await model.save(`file://${tfjsPath}`);
+    console.log(`  TensorFlow.js model saved to ${tfjsPath}`);
+
+    // Save labels
     await fs.promises.writeFile(
         path.join(CONFIG.modelSavePath, 'labels.json'),
         JSON.stringify(LABELS)
@@ -222,3 +229,4 @@ async function train() {
 }
 
 train().catch(console.error);
+

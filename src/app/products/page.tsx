@@ -61,17 +61,6 @@ export default function ProductsPage() {
 
     return (
         <div className="min-h-screen bg-[#FAFAFA]">
-            {/* Hero Section */}
-            <div className="bg-white border-b border-[#E5E7EB]">
-                <div className="max-w-6xl mx-auto px-6 py-12">
-                    <h1 className="text-3xl font-bold text-[#111]">Produk Partner</h1>
-                    <p className="mt-2 text-[#111]/60 max-w-xl">
-                        Koleksi produk perawatan wajah dari brand-brand terpercaya yang telah bekerja sama dengan SkinLab.
-                        Semua produk telah melalui kurasi khusus berdasarkan kandungan dan manfaatnya.
-                    </p>
-                </div>
-            </div>
-
             {/* Filter & Products */}
             <div className="max-w-6xl mx-auto px-6 py-8">
                 {/* Filter Tabs */}
