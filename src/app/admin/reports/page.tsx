@@ -2,14 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  getAllAnalysisLogs,
-  getAllProducts,
-  getAllSkinTypes,
-  AnalysisLog,
-  Product,
-  SkinType
-} from '@/data/models';
+import {
+  getAnalysisLogsAction,
+  getProductsAction,
+  getSkinTypesAction
+} from '@/app/admin/actions';
+import { AnalysisLog, Product, SkinType } from '@/data/models';
 
 export default function ReportsAdmin() {
   const router = useRouter();
@@ -28,11 +26,13 @@ export default function ReportsAdmin() {
     fetchData();
   }, []);
 
-  const fetchData = () => {
+  const fetchData = async () => {
     try {
-      const logsData = getAllAnalysisLogs();
-      const productsData = getAllProducts();
-      const skinTypesData = getAllSkinTypes();
+      const [logsData, productsData, skinTypesData] = await Promise.all([
+        getAnalysisLogsAction(),
+        getProductsAction(),
+        getSkinTypesAction()
+      ]);
       setLogs(logsData);
       setProducts(productsData);
       setSkinTypes(skinTypesData);
@@ -45,268 +45,242 @@ export default function ReportsAdmin() {
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFilter({
-      ...filter,
-      [name]: value
+    setFilter({ ...filter, [name]: value });
+  };
+
+  const getProductName = (idString: string) => {
+    if (!idString) return 'None';
+    const ids = idString.split(',').map(s => parseInt(s.trim()));
+    const productNames = ids.map(id => {
+      const product = products.find(p => p.id === id);
+      return product ? product.name : `Unknown (${id})`;
     });
+    return productNames.join(', ');
   };
 
-  const getProductName = (id: number) => {
-    const product = products.find(p => p.id === id);
-    return product ? product.name : 'Unknown';
-  };
-
-  const getSkinTypeName = (name: string) => {
-    const skinType = skinTypes.find(st => st.name === name);
-    return skinType ? skinType.name : name;
-  };
-
-  // Generate reports
   const generateMostRecommendedReport = () => {
-    const productCount: Record<number, number> = {};
-    
+    const productCount: Record<string, number> = {};
     logs.forEach(log => {
-      if (productCount[log.recommended_product_id]) {
-        productCount[log.recommended_product_id]++;
-      } else {
-        productCount[log.recommended_product_id] = 1;
+      if (log.recommended_product_ids) {
+        const ids = log.recommended_product_ids.split(',');
+        ids.forEach(idStr => {
+          const id = parseInt(idStr.trim());
+          if (!isNaN(id)) {
+            productCount[id] = (productCount[id] || 0) + 1;
+          }
+        });
       }
     });
 
-    const sortedProducts = Object.entries(productCount)
+    return Object.entries(productCount)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([productId, count]) => ({
-        product: getProductName(parseInt(productId)),
+        product: products.find(p => p.id === parseInt(productId))?.name || `Unknown (${productId})`,
         count
       }));
-
-    return sortedProducts;
   };
 
   const generateMostCommonSkinTypes = () => {
     const skinTypeCount: Record<string, number> = {};
-    
     logs.forEach(log => {
-      if (skinTypeCount[log.skin_condition_detected]) {
-        skinTypeCount[log.skin_condition_detected]++;
-      } else {
-        skinTypeCount[log.skin_condition_detected] = 1;
-      }
+      const condition = log.dominant_condition || 'Unknown';
+      skinTypeCount[condition] = (skinTypeCount[condition] || 0) + 1;
     });
 
-    const sortedSkinTypes = Object.entries(skinTypeCount)
+    return Object.entries(skinTypeCount)
       .sort((a, b) => b[1] - a[1])
-      .map(([skinType, count]) => ({
-        skinType,
-        count
-      }));
-
-    return sortedSkinTypes;
+      .map(([skinType, count]) => ({ skinType, count }));
   };
 
   const mostRecommendedProducts = generateMostRecommendedReport();
   const mostCommonSkinTypes = generateMostCommonSkinTypes();
 
+  const filteredLogs = logs.filter(log => {
+    const matchesDate = (!filter.startDate || new Date(log.created_at) >= new Date(filter.startDate)) &&
+      (!filter.endDate || new Date(log.created_at) <= new Date(filter.endDate));
+    const matchesCondition = !filter.skinCondition || log.dominant_condition === filter.skinCondition;
+    const matchesProduct = !filter.productId || (log.recommended_product_ids && log.recommended_product_ids.split(',').includes(filter.productId));
+    return matchesDate && matchesCondition && matchesProduct;
+  });
+
+  const getConditionBadge = (condition: string) => {
+    const badges: Record<string, string> = {
+      oily: 'admin-badge admin-badge-oily',
+      dry: 'admin-badge admin-badge-dry',
+      acne: 'admin-badge admin-badge-acne',
+      normal: 'admin-badge admin-badge-normal',
+    };
+    return badges[condition] || 'admin-badge';
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Analysis Reports</h1>
-          <p className="text-gray-600 mt-2">View reports and statistics from face analysis</p>
-        </div>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-xl font-semibold" style={{ color: 'var(--text-main)' }}>Reports & Analytics</h1>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Deep dive into analysis data</p>
+      </div>
 
-        {/* Filter Section */}
-        <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Filter Analysis Logs</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
-                Start Date
-              </label>
-              <input
-                type="date"
-                id="startDate"
-                name="startDate"
-                value={filter.startDate}
-                onChange={handleFilterChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
-                End Date
-              </label>
-              <input
-                type="date"
-                id="endDate"
-                name="endDate"
-                value={filter.endDate}
-                onChange={handleFilterChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="skinCondition" className="block text-sm font-medium text-gray-700 mb-1">
-                Skin Condition
-              </label>
-              <select
-                id="skinCondition"
-                name="skinCondition"
-                value={filter.skinCondition}
-                onChange={handleFilterChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Conditions</option>
-                {skinTypes.map(skinType => (
-                  <option key={skinType.id} value={skinType.name}>
-                    {skinType.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            <div>
-              <label htmlFor="productId" className="block text-sm font-medium text-gray-700 mb-1">
-                Product
-              </label>
-              <select
-                id="productId"
-                name="productId"
-                value={filter.productId}
-                onChange={handleFilterChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Products</option>
-                {products.map(product => (
-                  <option key={product.id} value={product.id}>
-                    {product.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {/* Filter Bar */}
+      <div className="admin-card p-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Start Date</label>
+            <input
+              type="date"
+              name="startDate"
+              value={filter.startDate}
+              onChange={handleFilterChange}
+              className="admin-input"
+            />
           </div>
-          
-          <div className="mt-4 flex justify-end">
-            <button
-              onClick={fetchData}
-              className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-            >
-              Apply Filters
-            </button>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>End Date</label>
+            <input
+              type="date"
+              name="endDate"
+              value={filter.endDate}
+              onChange={handleFilterChange}
+              className="admin-input"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Condition</label>
+            <select name="skinCondition" value={filter.skinCondition} onChange={handleFilterChange} className="admin-input">
+              <option value="">All</option>
+              {skinTypes.map(st => <option key={st.id} value={st.name}>{st.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Product</label>
+            <select name="productId" value={filter.productId} onChange={handleFilterChange} className="admin-input">
+              <option value="">All</option>
+              {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
           </div>
         </div>
+      </div>
 
-        {/* Reports Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Most Recommended Products */}
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Most Recommended Products</h2>
-            {mostRecommendedProducts.length > 0 ? (
-              <div className="space-y-4">
-                {mostRecommendedProducts.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 flex items-center justify-center bg-blue-100 text-blue-800 font-bold rounded-full mr-3">
-                        {index + 1}
-                      </div>
-                      <span className="font-medium">{item.product}</span>
-                    </div>
-                    <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm font-medium">
-                      {item.count} recommendations
-                    </span>
-                  </div>
-                ))}
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Products */}
+        <div className="admin-card p-5">
+          <h3 className="admin-section-header">Top Products</h3>
+          <div className="space-y-3 mt-4">
+            {mostRecommendedProducts.slice(0, 5).map((item, idx) => (
+              <div key={idx} className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <span
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold"
+                    style={{
+                      background: idx === 0 ? 'var(--gradient-metric)' : 'var(--bg-sidebar)',
+                      color: idx === 0 ? 'white' : 'var(--text-muted)'
+                    }}
+                  >
+                    {idx + 1}
+                  </span>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>{item.product}</span>
+                </div>
+                <span
+                  className="px-2.5 py-1 rounded-full text-xs font-medium"
+                  style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' }}
+                >
+                  {item.count} rec.
+                </span>
               </div>
-            ) : (
-              <p className="text-gray-500">No data available</p>
-            )}
-          </div>
-
-          {/* Most Common Skin Types */}
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Most Common Skin Types</h2>
-            {mostCommonSkinTypes.length > 0 ? (
-              <div className="space-y-4">
-                {mostCommonSkinTypes.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 flex items-center justify-center bg-purple-100 text-purple-800 font-bold rounded-full mr-3">
-                        {index + 1}
-                      </div>
-                      <span className="font-medium">{item.skinType}</span>
-                    </div>
-                    <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-sm font-medium">
-                      {item.count} analyses
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500">No data available</p>
+            ))}
+            {mostRecommendedProducts.length === 0 && (
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No data available</p>
             )}
           </div>
         </div>
 
-        {/* Analysis Logs Table */}
-        <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Analysis Logs</h2>
-          {loading ? (
-            <div className="text-center py-8">
-              <p>Loading analysis logs...</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Skin Condition
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Recommended Product
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      User
-                    </th>
+        {/* Skin Type Distribution */}
+        <div className="admin-card p-5">
+          <h3 className="admin-section-header">Skin Type Distribution</h3>
+          <div className="space-y-3 mt-4">
+            {mostCommonSkinTypes.map((item, idx) => {
+              const total = logs.length || 1;
+              const percentage = Math.round((item.count / total) * 100);
+              return (
+                <div key={idx} className="space-y-1.5">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-medium capitalize" style={{ color: 'var(--text-main)' }}>{item.skinType}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{item.count} ({percentage}%)</span>
+                  </div>
+                  <div
+                    className="h-2 rounded-full overflow-hidden"
+                    style={{ backgroundColor: 'var(--bg-sidebar)' }}
+                  >
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${percentage}%`,
+                        background: 'var(--gradient-metric)'
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+            {mostCommonSkinTypes.length === 0 && (
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No data available</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Logs Table */}
+      <div className="admin-card overflow-hidden">
+        <div className="px-5 py-3 border-b" style={{ borderColor: 'var(--border-soft)' }}>
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>Analysis Logs</h3>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div
+              className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin"
+              style={{ borderColor: 'var(--primary)', borderTopColor: 'transparent' }}
+            />
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Condition</th>
+                  <th>Recommendation</th>
+                  <th>User</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredLogs.map((log) => (
+                  <tr key={log.id}>
+                    <td>{new Date(log.created_at).toLocaleDateString()}</td>
+                    <td>
+                      <span className={getConditionBadge(log.dominant_condition)}>
+                        {log.dominant_condition}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="truncate max-w-xs block">{getProductName(log.recommended_product_ids)}</span>
+                    </td>
+                    <td>{log.user_name || 'Guest'}</td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {logs.map((log) => (
-                    <tr key={log.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(log.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {log.skin_condition_detected}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {getProductName(log.recommended_product_id)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {log.user_id ? log.user_id : 'Guest'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        <div className="text-center">
-          <button
-            onClick={() => router.push('/admin')}
-            className="px-4 py-2 text-gray-600 font-medium rounded-lg hover:text-gray-900 focus:outline-none"
-          >
-            ← Back to Admin Dashboard
-          </button>
-        </div>
+                ))}
+                {filteredLogs.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                      No logs found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

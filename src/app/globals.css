@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
   --bg: #FAFAFA;
@@ -8,36 +8,347 @@
   --accent: #3B82F6;
 }
 
-html, body {
+/* ============================================
+   ADMIN DESIGN SYSTEM - Cyan × Orange Theme
+   ============================================ */
+
+@theme {
+  /* Color Tokens */
+  --color-admin-bg: var(--bg-main);
+  --color-admin-surface: var(--bg-surface);
+  --color-admin-border: var(--border-soft);
+  --color-admin-text: var(--text-main);
+  --color-admin-muted: var(--text-muted);
+  --color-admin-primary: var(--primary);
+  --color-admin-primary-dark: var(--primary-dark);
+  --color-admin-accent: var(--accent-color);
+  --color-admin-success: var(--success);
+  --color-admin-warning: var(--warning);
+  --color-admin-danger: var(--danger);
+}
+
+.admin-root {
+  /* === Color Palette (Cyan × Orange) === */
+  --primary: #0EA5E9;
+  --primary-dark: #0284C7;
+  --primary-light: #22D3EE;
+  --accent-color: #FB923C;
+  --accent-dark: #F97316;
+
+  /* Backgrounds */
+  --bg-main: #F8FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-sidebar: #F1F5F9;
+  --bg-hover: #F1F5F9;
+
+  /* Text Colors */
+  --text-main: #0F172A;
+  --text-secondary: #334155;
+  --text-muted: #64748B;
+
+  /* Borders */
+  --border-soft: #E2E8F0;
+  --border-strong: #CBD5E1;
+
+  /* Status Colors */
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+
+  /* === Gradients === */
+  --gradient-metric: linear-gradient(135deg, #0EA5E9 0%, #22D3EE 100%);
+  --gradient-header: linear-gradient(120deg, #0EA5E9 0%, #FB923C 90%);
+  --gradient-active: linear-gradient(135deg, #0EA5E9 0%, #14B8A6 100%);
+
+  /* === Shadows === */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-elevated: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-metric: 0 10px 15px -3px rgb(14 165 233 / 0.2), 0 4px 6px -4px rgb(14 165 233 / 0.1);
+
+  /* === Transitions === */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* === Border Radius === */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+}
+
+/* === Utility Classes === */
+
+/* Metric Card - Gradient Background */
+.admin-metric-card {
+  background: var(--gradient-metric);
+  color: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-metric);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.admin-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 20px -3px rgb(14 165 233 / 0.25), 0 6px 8px -4px rgb(14 165 233 / 0.15);
+}
+
+/* Surface Card - Elevated */
+.admin-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.admin-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-elevated);
+}
+
+/* Interactive Card (for navigation) */
+.admin-card-interactive {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.admin-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-elevated);
+  border-color: var(--primary);
+}
+
+/* Header Accent Strip */
+.admin-header-accent {
+  height: 3px;
+  background: var(--gradient-header);
+}
+
+/* Sidebar Navigation */
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.admin-nav-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
+}
+
+.admin-nav-item.active {
+  background: rgba(14, 165, 233, 0.08);
+  color: var(--primary);
+}
+
+.admin-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: var(--primary);
+  border-radius: 0 2px 2px 0;
+}
+
+/* Table Styles */
+.admin-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.admin-table thead {
+  background: var(--bg-sidebar);
+}
+
+.admin-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.admin-table td {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.admin-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.admin-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+/* Button Styles */
+.admin-btn-primary {
+  background: var(--primary);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  border: none;
+  cursor: pointer;
+}
+
+.admin-btn-primary:hover {
+  background: var(--primary-dark);
+  box-shadow: var(--shadow-card);
+}
+
+.admin-btn-secondary {
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--border-soft);
+  cursor: pointer;
+}
+
+.admin-btn-secondary:hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
+  border-color: var(--border-strong);
+}
+
+/* Form Inputs */
+.admin-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.admin-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+/* Status Badges */
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.admin-badge-oily {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.admin-badge-dry {
+  background: #DBEAFE;
+  color: #1E40AF;
+}
+
+.admin-badge-acne {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+.admin-badge-normal {
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+/* Page Fade In Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.admin-page-enter {
+  animation: fadeIn var(--transition-normal) ease-out;
+}
+
+/* Section Headers */
+.admin-section-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+html,
+body {
   height: 100vh;
-  height: 100dvh; /* Dynamic viewport height for mobile browsers */
+  height: 100dvh;
   overflow: hidden;
 }
 
 /* Mobile-specific adjustments */
 @media (max-width: 1024px) {
-  html, body {
+
+  html,
+  body {
     height: 100dvh;
     -webkit-overflow-scrolling: touch;
   }
-  
-  /* Enable smooth scrolling on mobile */
+
   * {
     -webkit-overflow-scrolling: touch;
   }
-  
-  /* Prevent zoom on input focus */
-  input, textarea, select {
+
+  input,
+  textarea,
+  select {
     font-size: 16px !important;
   }
-  
-  /* Better touch targets */
-  button, a {
+
+  button,
+  a {
     min-height: 44px;
     min-width: 44px;
   }
-  
-  /* Prevent text selection on buttons */
+
   button {
     -webkit-tap-highlight-color: transparent;
     user-select: none;

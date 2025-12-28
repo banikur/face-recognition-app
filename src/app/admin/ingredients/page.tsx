@@ -1,34 +1,31 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { 
-  getAllIngredients, 
-  createIngredient, 
-  updateIngredient, 
-  deleteIngredient,
-  Ingredient
-} from '@/data/models';
+import { getIngredientsAction, createIngredientAction, updateIngredientAction, deleteIngredientAction } from '@/app/admin/actions';
+import { Ingredient } from '@/data/models';
 
 export default function IngredientsAdmin() {
-  const router = useRouter();
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
-  const [formData, setFormData] = useState<Omit<Ingredient, 'id'>>({
+  const [formData, setFormData] = useState({
     name: '',
-    effect: ''
+    effect: '',
+    w_oily: 0,
+    w_dry: 0,
+    w_normal: 0,
+    w_acne: 0
   });
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  const fetchData = () => {
+  const fetchData = async () => {
     try {
-      const ingredientsData = getAllIngredients();
-      setIngredients(ingredientsData);
+      const data = await getIngredientsAction();
+      setIngredients(data);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -37,29 +34,22 @@ export default function IngredientsAdmin() {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
     setFormData({
       ...formData,
-      [name]: value
+      [name]: type === 'number' ? parseFloat(value) || 0 : value
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     try {
       if (editingIngredient) {
-        updateIngredient(editingIngredient.id, formData);
+        await updateIngredientAction(editingIngredient.id, formData);
       } else {
-        createIngredient(formData);
+        await createIngredientAction(formData);
       }
-      
-      // Reset form and refresh data
-      setFormData({
-        name: '',
-        effect: ''
-      });
-      setEditingIngredient(null);
+      resetForm();
       setShowForm(false);
       fetchData();
     } catch (error) {
@@ -71,15 +61,19 @@ export default function IngredientsAdmin() {
     setEditingIngredient(ingredient);
     setFormData({
       name: ingredient.name,
-      effect: ingredient.effect
+      effect: ingredient.effect || '',
+      w_oily: ingredient.w_oily,
+      w_dry: ingredient.w_dry,
+      w_normal: ingredient.w_normal,
+      w_acne: ingredient.w_acne
     });
     setShowForm(true);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm('Are you sure you want to delete this ingredient?')) {
       try {
-        deleteIngredient(id);
+        await deleteIngredientAction(id);
         fetchData();
       } catch (error) {
         console.error('Error deleting ingredient:', error);
@@ -87,147 +81,203 @@ export default function IngredientsAdmin() {
     }
   };
 
+  const resetForm = () => {
+    setEditingIngredient(null);
+    setFormData({ name: '', effect: '', w_oily: 0, w_dry: 0, w_normal: 0, w_acne: 0 });
+  };
+
+  const WeightBar = ({ value, label, color }: { value: number; label: string; color: string }) => (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] w-6 text-right" style={{ color: 'var(--text-muted)' }}>{label}</span>
+      <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: 'var(--bg-sidebar)' }}>
+        <div className="h-full rounded-full transition-all" style={{ width: `${value * 100}%`, backgroundColor: color }} />
+      </div>
+      <span className="text-[10px] w-6" style={{ color: 'var(--text-muted)' }}>{(value * 100).toFixed(0)}%</span>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Manage Ingredients</h1>
-          <p className="text-gray-600 mt-2">Manage product ingredients and their effects</p>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-xl font-semibold" style={{ color: 'var(--text-main)' }}>Ingredients</h1>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Master data with weight mapping</p>
         </div>
+        <button onClick={() => { resetForm(); setShowForm(true); }} className="admin-btn-primary">
+          <span className="flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Add Ingredient
+          </span>
+        </button>
+      </div>
 
-        <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Ingredients List</h2>
-            <button
-              onClick={() => {
-                setEditingIngredient(null);
-                setFormData({
-                  name: '',
-                  effect: ''
-                });
-                setShowForm(true);
-              }}
-              className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-            >
-              Add New Ingredient
-            </button>
-          </div>
-
-          {showForm && (
-            <form onSubmit={handleSubmit} className="mb-8 p-6 bg-gray-50 rounded-lg">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                {editingIngredient ? 'Edit Ingredient' : 'Add New Ingredient'}
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Ingredient Name
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+      {showForm && (
+        <div className="admin-card p-6">
+          <h3 className="admin-section-header mb-4">
+            {editingIngredient ? 'Edit Ingredient' : 'New Ingredient'}
+          </h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                  Ingredient Name*
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  required
+                  className="admin-input"
+                />
               </div>
-              
-              <div className="mb-6">
-                <label htmlFor="effect" className="block text-sm font-medium text-gray-700 mb-1">
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
                   Effect
                 </label>
-                <textarea
-                  id="effect"
+                <input
+                  type="text"
                   name="effect"
                   value={formData.effect}
                   onChange={handleInputChange}
-                  required
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="admin-input"
+                  placeholder="e.g., Oil control, acne treatment"
                 />
               </div>
-              
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-gray-700 font-medium rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-                >
-                  {editingIngredient ? 'Update Ingredient' : 'Add Ingredient'}
-                </button>
+            </div>
+
+            {/* Weight Sliders */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-sidebar)' }}>
+              <div>
+                <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>
+                  Oily Weight
+                </label>
+                <input
+                  type="range"
+                  name="w_oily"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={formData.w_oily}
+                  onChange={handleInputChange}
+                  className="w-full accent-yellow-500"
+                />
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{(formData.w_oily * 100).toFixed(0)}%</span>
               </div>
-            </form>
-          )}
-
-          {loading ? (
-            <div className="text-center py-8">
-              <p>Loading ingredients...</p>
+              <div>
+                <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>
+                  Dry Weight
+                </label>
+                <input
+                  type="range"
+                  name="w_dry"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={formData.w_dry}
+                  onChange={handleInputChange}
+                  className="w-full accent-blue-500"
+                />
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{(formData.w_dry * 100).toFixed(0)}%</span>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>
+                  Normal Weight
+                </label>
+                <input
+                  type="range"
+                  name="w_normal"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={formData.w_normal}
+                  onChange={handleInputChange}
+                  className="w-full accent-green-500"
+                />
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{(formData.w_normal * 100).toFixed(0)}%</span>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>
+                  Acne Weight
+                </label>
+                <input
+                  type="range"
+                  name="w_acne"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={formData.w_acne}
+                  onChange={handleInputChange}
+                  className="w-full accent-red-500"
+                />
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{(formData.w_acne * 100).toFixed(0)}%</span>
+              </div>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ingredient
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Effect
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {ingredients.map((ingredient) => (
-                    <tr key={ingredient.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{ingredient.name}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {ingredient.effect}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(ingredient)}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(ingredient.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
 
-        <div className="text-center">
-          <button
-            onClick={() => router.push('/admin')}
-            className="px-4 py-2 text-gray-600 font-medium rounded-lg hover:text-gray-900 focus:outline-none"
-          >
-            ← Back to Admin Dashboard
-          </button>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => setShowForm(false)} className="admin-btn-secondary">
+                Cancel
+              </button>
+              <button type="submit" className="admin-btn-primary">
+                {editingIngredient ? 'Update' : 'Create'}
+              </button>
+            </div>
+          </form>
         </div>
+      )}
+
+      <div className="admin-card overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary)', borderTopColor: 'transparent' }} />
+          </div>
+        ) : (
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Ingredient</th>
+                <th>Effect</th>
+                <th>Weights (O/D/N/A)</th>
+                <th className="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ingredients.map((ingredient) => (
+                <tr key={ingredient.id}>
+                  <td>
+                    <span className="font-medium" style={{ color: 'var(--text-main)' }}>{ingredient.name}</span>
+                  </td>
+                  <td>
+                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{ingredient.effect || '—'}</span>
+                  </td>
+                  <td>
+                    <div className="w-40 space-y-1">
+                      <WeightBar value={ingredient.w_oily} label="O" color="#F59E0B" />
+                      <WeightBar value={ingredient.w_dry} label="D" color="#3B82F6" />
+                      <WeightBar value={ingredient.w_normal} label="N" color="#10B981" />
+                      <WeightBar value={ingredient.w_acne} label="A" color="#EF4444" />
+                    </div>
+                  </td>
+                  <td className="text-right">
+                    <button onClick={() => handleEdit(ingredient)} className="text-sm font-medium mr-3" style={{ color: 'var(--primary)' }}>
+                      Edit
+                    </button>
+                    <button onClick={() => handleDelete(ingredient.id)} className="text-sm font-medium" style={{ color: 'var(--danger)' }}>
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {ingredients.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>No ingredients found</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

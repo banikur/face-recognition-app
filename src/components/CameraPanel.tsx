@@ -15,12 +15,17 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const uploadedImageRef = useRef<HTMLImageElement | null>(null);
+  const animationFrameId = useRef<number | null>(null);
 
   const [mode, setMode] = useState<InputMode>('camera');
   const [cameraReady, setCameraReady] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploadLoading, setUploadLoading] = useState(false);
+  const [faceBox, setFaceBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [uploadImageLoaded, setUploadImageLoaded] = useState(false);
 
   // Helper function to get getUserMedia with fallbacks
   const getUserMediaWithFallback = (): ((constraints: MediaStreamConstraints) => Promise<MediaStream>) | null => {
@@ -62,9 +67,52 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
 
     initializeModels();
 
-    if (mode !== 'camera') return;
+    if (mode !== 'camera') {
+      // Stop face detection loop when switching away from camera
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+      }
+      setFaceBox(null);
+      return;
+    }
 
     let stream: MediaStream | null = null;
+
+    // Real-time face detection loop
+    const detectFaceLoop = async () => {
+      if (!videoRef.current || !cameraReady || mode !== 'camera') {
+        animationFrameId.current = requestAnimationFrame(detectFaceLoop);
+        return;
+      }
+
+      try {
+        const result = await detectFaces(videoRef.current);
+        if (result.faceDetected && result.boundingBox) {
+          const video = videoRef.current;
+          const videoWidth = video.videoWidth;
+          const videoHeight = video.videoHeight;
+
+          // Convert normalized coordinates to pixel coordinates
+          const box = {
+            x: result.boundingBox.x * videoWidth,
+            y: result.boundingBox.y * videoHeight,
+            width: result.boundingBox.width * videoWidth,
+            height: result.boundingBox.height * videoHeight
+          };
+          setFaceBox(box);
+        } else {
+          setFaceBox(null);
+        }
+      } catch (err) {
+        console.error('Face detection error:', err);
+      }
+
+      // Continue loop (throttled to ~10fps for performance)
+      setTimeout(() => {
+        animationFrameId.current = requestAnimationFrame(detectFaceLoop);
+      }, 100);
+    };
 
     const initCamera = async () => {
       try {
@@ -170,8 +218,187 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
 
     return () => {
       if (stream) stream.getTracks().forEach((t) => t.stop());
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+      }
     };
   }, [mode]);
+
+  // Start face detection loop when camera is ready
+  useEffect(() => {
+    if (cameraReady && mode === 'camera' && !animationFrameId.current) {
+      const startDetection = async () => {
+        if (!videoRef.current) return;
+
+        const detectLoop = async () => {
+          if (!videoRef.current || !cameraReady || mode !== 'camera') {
+            return;
+          }
+
+          try {
+            const result = await detectFaces(videoRef.current);
+            if (result.faceDetected && result.boundingBox) {
+              const video = videoRef.current;
+              const videoWidth = video.videoWidth;
+              const videoHeight = video.videoHeight;
+
+              const box = {
+                x: result.boundingBox.x * videoWidth,
+                y: result.boundingBox.y * videoHeight,
+                width: result.boundingBox.width * videoWidth,
+                height: result.boundingBox.height * videoHeight
+              };
+              setFaceBox(box);
+            } else {
+              setFaceBox(null);
+            }
+          } catch (err) {
+            console.error('Face detection loop error:', err);
+          }
+
+          setTimeout(() => {
+            if (mode === 'camera' && cameraReady) {
+              animationFrameId.current = requestAnimationFrame(detectLoop);
+            }
+          }, 100);
+        };
+
+        detectLoop();
+      };
+
+      startDetection();
+    }
+
+    return () => {
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+      }
+    };
+  }, [cameraReady, mode]);
+
+  // Detect face in uploaded image when loaded
+  useEffect(() => {
+    if (mode === 'upload' && uploadedImageRef.current && uploadImageLoaded) {
+      const detectUploadedFace = async () => {
+        const img = uploadedImageRef.current;
+        if (!img) return;
+
+        try {
+          const result = await detectFaces(img);
+          if (result.faceDetected && result.boundingBox) {
+            const box = {
+              x: result.boundingBox.x * img.naturalWidth,
+              y: result.boundingBox.y * img.naturalHeight,
+              width: result.boundingBox.width * img.naturalWidth,
+              height: result.boundingBox.height * img.naturalHeight
+            };
+            setFaceBox(box);
+          } else {
+            setFaceBox(null);
+          }
+        } catch (err) {
+          console.error('Upload face detection error:', err);
+          setFaceBox(null);
+        }
+      };
+
+      detectUploadedFace();
+    }
+  }, [uploadedImage, uploadImageLoaded, mode]);
+
+  // Draw face overlay on canvas
+  useEffect(() => {
+    if (!overlayCanvasRef.current) return;
+
+    const canvas = overlayCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Get the reference element (video or image)
+    const refElement = mode === 'camera' ? videoRef.current : uploadedImageRef.current;
+    if (!refElement) return;
+
+    // Match canvas size to display size
+    const rect = refElement.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw face bounding box
+    if (faceBox) {
+      const sourceWidth = mode === 'camera'
+        ? (refElement as HTMLVideoElement).videoWidth
+        : (refElement as HTMLImageElement).naturalWidth;
+      const sourceHeight = mode === 'camera'
+        ? (refElement as HTMLVideoElement).videoHeight
+        : (refElement as HTMLImageElement).naturalHeight;
+
+      if (sourceWidth === 0 || sourceHeight === 0) return;
+
+      const scaleX = rect.width / sourceWidth;
+      const scaleY = rect.height / sourceHeight;
+
+      ctx.strokeStyle = '#10B981'; // Green
+      ctx.lineWidth = 3;
+      ctx.shadowColor = 'rgba(16, 185, 129, 0.5)';
+      ctx.shadowBlur = 8;
+
+      ctx.strokeRect(
+        faceBox.x * scaleX,
+        faceBox.y * scaleY,
+        faceBox.width * scaleX,
+        faceBox.height * scaleY
+      );
+
+      // Draw corner accents
+      const cornerLength = 20;
+      ctx.lineWidth = 4;
+      const x = faceBox.x * scaleX;
+      const y = faceBox.y * scaleY;
+      const w = faceBox.width * scaleX;
+      const h = faceBox.height * scaleY;
+
+      // Top-left
+      ctx.beginPath();
+      ctx.moveTo(x, y + cornerLength);
+      ctx.lineTo(x, y);
+      ctx.lineTo(x + cornerLength, y);
+      ctx.stroke();
+
+      // Top-right
+      ctx.beginPath();
+      ctx.moveTo(x + w - cornerLength, y);
+      ctx.lineTo(x + w, y);
+      ctx.lineTo(x + w, y + cornerLength);
+      ctx.stroke();
+
+      // Bottom-left
+      ctx.beginPath();
+      ctx.moveTo(x, y + h - cornerLength);
+      ctx.lineTo(x, y + h);
+      ctx.lineTo(x + cornerLength, y + h);
+      ctx.stroke();
+
+      // Bottom-right
+      ctx.beginPath();
+      ctx.moveTo(x + w - cornerLength, y + h);
+      ctx.lineTo(x + w, y + h);
+      ctx.lineTo(x + w, y + h - cornerLength);
+      ctx.stroke();
+
+      // Face detected label
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
+      ctx.font = '12px system-ui, sans-serif';
+      ctx.fillRect(x, y - 24, 100, 20);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('Wajah Terdeteksi', x + 8, y - 10);
+    }
+  }, [faceBox, mode, uploadImageLoaded]);
 
   const handleCapture = async () => {
     if (mode === 'camera' && videoRef.current && cameraReady) {
@@ -293,6 +520,8 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       setUploadedImage(ev.target?.result as string);
+      setUploadImageLoaded(false);
+      setFaceBox(null);
       setError(null);
       setUploadLoading(false);
       e.target.value = '';
@@ -344,6 +573,58 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                   muted
                   autoPlay
                 />
+                {/* Oval face positioning guide - static overlay */}
+                {cameraReady && !isAnalyzing && (
+                  <div className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 5 }}>
+                    {/* Vignette mask */}
+                    <svg className="absolute inset-0 w-full h-full">
+                      <defs>
+                        <mask id="ovalMask">
+                          <rect width="100%" height="100%" fill="white" />
+                          <ellipse
+                            cx="50%"
+                            cy="45%"
+                            rx="35%"
+                            ry="42%"
+                            fill="black"
+                          />
+                        </mask>
+                      </defs>
+                      <rect
+                        width="100%"
+                        height="100%"
+                        fill="rgba(0, 0, 0, 0.5)"
+                        mask="url(#ovalMask)"
+                      />
+                    </svg>
+                    {/* Oval guide border */}
+                    <svg className="absolute inset-0 w-full h-full">
+                      <ellipse
+                        cx="50%"
+                        cy="45%"
+                        rx="35%"
+                        ry="42%"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="2"
+                        strokeDasharray="8 4"
+                        opacity="0.8"
+                      />
+                    </svg>
+                    {/* Instruction text */}
+                    <div className="absolute top-[8%] left-0 right-0 flex justify-center">
+                      <div className="bg-black/60 px-3 py-1.5 rounded-full">
+                        <p className="text-white text-xs font-medium">Posisikan wajah di dalam oval</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* Face detection overlay canvas */}
+                <canvas
+                  ref={overlayCanvasRef}
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  style={{ zIndex: 10 }}
+                />
                 {!cameraReady && !error && (
                   <div className="absolute inset-0 flex items-center justify-center text-sm text-white/60">
                     Mengaktifkan kamera...
@@ -353,7 +634,23 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
             ) : (
               <>
                 {uploadedImage ? (
-                  <img src={uploadedImage} alt="Uploaded" className="absolute inset-0 w-full h-full object-cover bg-black" />
+                  <>
+                    <img
+                      ref={uploadedImageRef}
+                      src={uploadedImage}
+                      alt="Uploaded"
+                      className="absolute inset-0 w-full h-full object-contain bg-black"
+                      onLoad={() => setUploadImageLoaded(true)}
+                    />
+                    {/* Face detection overlay for uploaded image */}
+                    {uploadImageLoaded && (
+                      <canvas
+                        ref={overlayCanvasRef}
+                        className="absolute inset-0 w-full h-full pointer-events-none"
+                        style={{ zIndex: 10 }}
+                      />
+                    )}
+                  </>
                 ) : (
                   <div
                     onClick={() => fileInputRef.current?.click()}

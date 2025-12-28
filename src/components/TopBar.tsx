@@ -7,7 +7,7 @@ export default function TopBar() {
     <header className="h-14 w-full border-b border-[#E5E7EB] bg-white flex-shrink-0">
       <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-3 sm:px-6">
         <Link href="/" className="text-base sm:text-lg font-semibold text-[#111]">
-          SkinLab
+          Face Analytic
         </Link>
         <nav className="flex items-center gap-3 sm:gap-6 text-xs sm:text-sm">
           <Link href="/" className="font-medium text-[#3B82F6] touch-manipulation">
