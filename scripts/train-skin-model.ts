@@ -1,7 +1,7 @@
 /**
- * Skin Type Classification Model Training Script
+ * Skin Condition Classification Model Training Script
  * 
- * Uses sharp for image processing + TensorFlow.js
+ * Categories: acne, blackheads, clear_skin, dark_spots, puffy_eyes, wrinkles
  * 
  * Usage: npx tsx scripts/train-skin-model.ts
  */
@@ -14,22 +14,35 @@ import * as path from 'path';
 // Configuration
 const CONFIG = {
     imageSize: 128,
-    batchSize: 8,
-    epochs: 15,
-    learningRate: 0.001,
+    batchSize: 16,
+    epochs: 25,
+    learningRate: 0.0005,
     validationSplit: 0.2,
     modelSavePath: './public/models/skin-classifier',
+    datasetPath: './data/training',
 };
 
-// Skin type labels
-const LABELS = ['acne', 'normal', 'oily', 'dry'];
-const LABEL_MAP: Record<string, number> = {
-    'acne': 0,
-    'redness': 0,
-    'normal': 1,
-    'bags': 1,
-    'oily': 2,
-    'dry': 3,
+// 6 categories with sufficient data (2500+ images total)
+const LABELS = [
+    'acne',        // 250 images
+    'blackheads',  // 250 images
+    'clear_skin',  // 500 images (renamed from "clear skin")
+    'dark_spots',  // 479 images (renamed from "dark spots")
+    'puffy_eyes',  // 518 images (renamed from "puffy eyes")
+    'wrinkles',    // 741 images
+];
+
+// Map folder names to labels (handle spaces and variations)
+const FOLDER_MAP: Record<string, string> = {
+    'acne': 'acne',
+    'blackheads': 'blackheads',
+    'clear skin': 'clear_skin',
+    'clear_skin': 'clear_skin',
+    'dark spots': 'dark_spots',
+    'dark_spots': 'dark_spots',
+    'puffy eyes': 'puffy_eyes',
+    'puffy_eyes': 'puffy_eyes',
+    'wrinkles': 'wrinkles',
 };
 
 interface TrainingData {
@@ -37,9 +50,6 @@ interface TrainingData {
     label: number;
 }
 
-/**
- * Load and preprocess image using sharp
- */
 async function loadImage(imagePath: string): Promise<tf.Tensor3D | null> {
     try {
         const { data, info } = await sharp(imagePath)
@@ -48,7 +58,6 @@ async function loadImage(imagePath: string): Promise<tf.Tensor3D | null> {
             .raw()
             .toBuffer({ resolveWithObject: true });
 
-        // Normalize to [-1, 1]
         const pixels = new Float32Array(data.length);
         for (let i = 0; i < data.length; i++) {
             pixels[i] = (data[i] / 127.5) - 1;
@@ -56,50 +65,32 @@ async function loadImage(imagePath: string): Promise<tf.Tensor3D | null> {
 
         return tf.tensor3d(pixels, [info.height, info.width, info.channels]);
     } catch (error) {
-        console.error(`  Failed: ${path.basename(imagePath)}`);
         return null;
     }
 }
 
-/**
- * Collect training data from dataset folders
- */
 function collectTrainingData(): TrainingData[] {
     const data: TrainingData[] = [];
-    const baseDir = './data/training';
+    const folders = fs.readdirSync(CONFIG.datasetPath);
 
-    // Source 1: Skin Defects
-    const source1Dir = path.join(baseDir, 'Source_1', 'files');
-    for (const category of ['acne', 'bags', 'redness']) {
-        const categoryDir = path.join(source1Dir, category);
-        if (!fs.existsSync(categoryDir)) continue;
+    for (const folder of folders) {
+        const folderPath = path.join(CONFIG.datasetPath, folder);
+        if (!fs.statSync(folderPath).isDirectory()) continue;
 
-        for (const personId of fs.readdirSync(categoryDir)) {
-            const personDir = path.join(categoryDir, personId);
-            if (!fs.statSync(personDir).isDirectory()) continue;
+        // Map folder name to label
+        const label = FOLDER_MAP[folder.toLowerCase()];
+        if (!label) continue;
 
-            for (const img of fs.readdirSync(personDir)) {
-                if (/\.(jpg|jpeg|png)$/i.test(img)) {
-                    data.push({
-                        imagePath: path.join(personDir, img),
-                        label: LABEL_MAP[category] ?? 1,
-                    });
-                }
-            }
-        }
-    }
+        const labelIndex = LABELS.indexOf(label);
+        if (labelIndex === -1) continue;
 
-    // Source 2: Facial Skin (normal baseline)
-    const source2Dir = path.join(baseDir, 'Source_2');
-    if (fs.existsSync(source2Dir)) {
-        for (const personId of fs.readdirSync(source2Dir)) {
-            const personDir = path.join(source2Dir, personId);
-            if (!fs.existsSync(personDir) || !fs.statSync(personDir).isDirectory()) continue;
-
-            for (const img of fs.readdirSync(personDir)) {
-                if (/\.(jpg|jpeg|png)$/i.test(img)) {
-                    data.push({ imagePath: path.join(personDir, img), label: 1 });
-                }
+        const files = fs.readdirSync(folderPath);
+        for (const file of files) {
+            if (/\.(jpg|jpeg|png|webp)$/i.test(file)) {
+                data.push({
+                    imagePath: path.join(folderPath, file),
+                    label: labelIndex,
+                });
             }
         }
     }
@@ -107,9 +98,6 @@ function collectTrainingData(): TrainingData[] {
     return data;
 }
 
-/**
- * Build CNN model
- */
 function buildModel(): tf.Sequential {
     const model = tf.sequential();
 
@@ -117,20 +105,20 @@ function buildModel(): tf.Sequential {
         inputShape: [CONFIG.imageSize, CONFIG.imageSize, 3],
         filters: 32, kernelSize: 3, activation: 'relu', padding: 'same',
     }));
+    model.add(tf.layers.batchNormalization());
     model.add(tf.layers.maxPooling2d({ poolSize: 2 }));
 
-    model.add(tf.layers.conv2d({
-        filters: 64, kernelSize: 3, activation: 'relu', padding: 'same',
-    }));
+    model.add(tf.layers.conv2d({ filters: 64, kernelSize: 3, activation: 'relu', padding: 'same' }));
+    model.add(tf.layers.batchNormalization());
     model.add(tf.layers.maxPooling2d({ poolSize: 2 }));
 
-    model.add(tf.layers.conv2d({
-        filters: 128, kernelSize: 3, activation: 'relu', padding: 'same',
-    }));
+    model.add(tf.layers.conv2d({ filters: 128, kernelSize: 3, activation: 'relu', padding: 'same' }));
+    model.add(tf.layers.batchNormalization());
     model.add(tf.layers.globalAveragePooling2d({}));
 
     model.add(tf.layers.dropout({ rate: 0.5 }));
-    model.add(tf.layers.dense({ units: 64, activation: 'relu' }));
+    model.add(tf.layers.dense({ units: 128, activation: 'relu' }));
+    model.add(tf.layers.dropout({ rate: 0.3 }));
     model.add(tf.layers.dense({ units: LABELS.length, activation: 'softmax' }));
 
     model.compile({
@@ -142,19 +130,25 @@ function buildModel(): tf.Sequential {
     return model;
 }
 
-/**
- * Main training function
- */
 async function train() {
-    console.log('=== Skin Classifier Training ===\n');
+    console.log('╔════════════════════════════════════════╗');
+    console.log('║   SKIN CONDITION CLASSIFIER TRAINING   ║');
+    console.log('╚════════════════════════════════════════╝\n');
+    console.log(`Categories: ${LABELS.length}`);
+    console.log(`Labels: ${LABELS.join(', ')}\n`);
 
     const trainingData = collectTrainingData();
-    console.log(`Found ${trainingData.length} images`);
+    console.log(`Total images: ${trainingData.length}\n`);
 
-    // Label distribution
     LABELS.forEach((label, i) => {
-        console.log(`  ${label}: ${trainingData.filter(d => d.label === i).length}`);
+        const count = trainingData.filter(d => d.label === i).length;
+        console.log(`  ${label.padEnd(12)} : ${count} images`);
     });
+
+    if (trainingData.length < 100) {
+        console.error('\n❌ Not enough training data!');
+        return;
+    }
 
     // Shuffle
     for (let i = trainingData.length - 1; i > 0; i--) {
@@ -162,7 +156,6 @@ async function train() {
         [trainingData[i], trainingData[j]] = [trainingData[j], trainingData[i]];
     }
 
-    // Load images
     console.log('\nLoading images...');
     const images: tf.Tensor3D[] = [];
     const labels: number[] = [];
@@ -173,60 +166,49 @@ async function train() {
             images.push(tensor);
             labels.push(trainingData[i].label);
         }
-        if ((i + 1) % 30 === 0) console.log(`  ${i + 1}/${trainingData.length}`);
+        if ((i + 1) % 100 === 0) process.stdout.write(`  ${i + 1}/${trainingData.length}\r`);
     }
 
-    console.log(`Loaded ${images.length} images\n`);
-
-    if (images.length === 0) {
-        console.error('No images loaded!');
-        return;
-    }
+    console.log(`\nLoaded: ${images.length} images\n`);
 
     const xs = tf.stack(images) as tf.Tensor4D;
     const ys = tf.oneHot(tf.tensor1d(labels, 'int32'), LABELS.length) as tf.Tensor2D;
     images.forEach(t => t.dispose());
 
-    console.log('Building model...');
+    console.log('Building model...\n');
     const model = buildModel();
     model.summary();
 
-    console.log('\nTraining...\n');
+    console.log('\n🚀 Training started...\n');
     await model.fit(xs, ys, {
         epochs: CONFIG.epochs,
         batchSize: CONFIG.batchSize,
         validationSplit: CONFIG.validationSplit,
         shuffle: true,
         callbacks: {
-            onEpochEnd: (epoch: number, logs: tf.Logs | undefined) => {
-                console.log(
-                    `Epoch ${epoch + 1}/${CONFIG.epochs} | ` +
-                    `loss: ${logs?.loss?.toFixed(4)} | acc: ${logs?.acc?.toFixed(4)} | ` +
-                    `val_acc: ${logs?.val_acc?.toFixed(4)}`
-                );
+            onEpochEnd: (epoch, logs) => {
+                const acc = ((logs?.acc || 0) * 100).toFixed(1);
+                const valAcc = ((logs?.val_acc || 0) * 100).toFixed(1);
+                console.log(`Epoch ${(epoch + 1).toString().padStart(2)}/${CONFIG.epochs} | acc: ${acc}% | val_acc: ${valAcc}%`);
             },
         },
     });
 
-    // Save model in multiple formats
+    console.log('\n💾 Saving model...');
     await fs.promises.mkdir(CONFIG.modelSavePath, { recursive: true });
 
-    // Save TensorFlow.js format (for browser inference)
     const tfjsPath = path.join(CONFIG.modelSavePath, 'tfjs');
     await fs.promises.mkdir(tfjsPath, { recursive: true });
     await model.save(`file://${tfjsPath}`);
-    console.log(`  TensorFlow.js model saved to ${tfjsPath}`);
 
-    // Save labels
     await fs.promises.writeFile(
         path.join(CONFIG.modelSavePath, 'labels.json'),
         JSON.stringify(LABELS)
     );
 
-    console.log(`\nModel saved to ${CONFIG.modelSavePath}`);
     xs.dispose(); ys.dispose();
-    console.log('=== Complete ===');
+    console.log('\n✅ Training complete!');
+    console.log(`   Model saved to: ${CONFIG.modelSavePath}`);
 }
 
 train().catch(console.error);
-
