@@ -1,0 +1,14 @@
+{
+  "filename": "skin_1767109886951_wrinkles.jpg",
+  "timestamp": 1767109886951,
+  "skinType": "Wrinkles",
+  "scores": {
+    "acne": 0,
+    "blackheads": 5,
+    "clear_skin": 9,
+    "dark_spots": 7,
+    "puffy_eyes": 3,
+    "wrinkles": 76
+  },
+  "labeled": false
+}

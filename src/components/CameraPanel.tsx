@@ -26,6 +26,8 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [faceBox, setFaceBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [uploadImageLoaded, setUploadImageLoaded] = useState(false);
+  const [guidanceStatus, setGuidanceStatus] = useState<'searching' | 'too-far' | 'too-close' | 'not-centered' | 'aligned'>('searching');
+  const [faceConfidence, setFaceConfidence] = useState(0);
 
   // Helper function to get getUserMedia with fallbacks
   const getUserMediaWithFallback = (): ((constraints: MediaStreamConstraints) => Promise<MediaStream>) | null => {
@@ -101,8 +103,38 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
             height: result.boundingBox.height * videoHeight
           };
           setFaceBox(box);
+
+          // Update confidence
+          setFaceConfidence(result.confidence || 0);
+
+          // Calculate guidance status
+          const faceWidth = result.boundingBox.width;
+          const faceHeight = result.boundingBox.height;
+          const centerX = result.boundingBox.x + faceWidth / 2;
+          const centerY = result.boundingBox.y + faceHeight / 2;
+
+          // Thresholds
+          const MIN_SIZE = 0.25; // Face must be at least 25% of screen width
+          const MAX_SIZE = 0.85; // Face must be at most 85% of screen width
+          const CENTER_TOLERANCE_X = 0.15;
+          const CENTER_TOLERANCE_Y = 0.2;
+
+          // Determine status
+          const isCenteredX = Math.abs(centerX - 0.5) < CENTER_TOLERANCE_X;
+          const isCenteredY = Math.abs(centerY - 0.5) < CENTER_TOLERANCE_Y;
+          
+          if (faceWidth < MIN_SIZE) {
+            setGuidanceStatus('too-far');
+          } else if (faceWidth > MAX_SIZE) {
+            setGuidanceStatus('too-close');
+          } else if (!isCenteredX || !isCenteredY) {
+            setGuidanceStatus('not-centered');
+          } else {
+            setGuidanceStatus('aligned');
+          }
         } else {
           setFaceBox(null);
+          setGuidanceStatus('searching');
         }
       } catch (err) {
         console.error('Face detection error:', err);
@@ -250,8 +282,38 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                 height: result.boundingBox.height * videoHeight
               };
               setFaceBox(box);
+
+              // Update confidence
+              setFaceConfidence(result.confidence || 0);
+
+              // Calculate guidance status
+              const faceWidth = result.boundingBox.width;
+              const faceHeight = result.boundingBox.height;
+              const centerX = result.boundingBox.x + faceWidth / 2;
+              const centerY = result.boundingBox.y + faceHeight / 2;
+
+              // Thresholds
+              const MIN_SIZE = 0.25;
+              const MAX_SIZE = 0.85;
+              const CENTER_TOLERANCE_X = 0.15;
+              const CENTER_TOLERANCE_Y = 0.2;
+
+              // Determine status
+              const isCenteredX = Math.abs(centerX - 0.5) < CENTER_TOLERANCE_X;
+              const isCenteredY = Math.abs(centerY - 0.5) < CENTER_TOLERANCE_Y;
+              
+              if (faceWidth < MIN_SIZE) {
+                setGuidanceStatus('too-far');
+              } else if (faceWidth > MAX_SIZE) {
+                setGuidanceStatus('too-close');
+              } else if (!isCenteredX || !isCenteredY) {
+                setGuidanceStatus('not-centered');
+              } else {
+                setGuidanceStatus('aligned');
+              }
             } else {
               setFaceBox(null);
+              setGuidanceStatus('searching');
             }
           } catch (err) {
             console.error('Face detection loop error:', err);
@@ -308,97 +370,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
     }
   }, [uploadedImage, uploadImageLoaded, mode]);
 
-  // Draw face overlay on canvas
-  useEffect(() => {
-    if (!overlayCanvasRef.current) return;
 
-    const canvas = overlayCanvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Get the reference element (video or image)
-    const refElement = mode === 'camera' ? videoRef.current : uploadedImageRef.current;
-    if (!refElement) return;
-
-    // Match canvas size to display size
-    const rect = refElement.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw face bounding box
-    if (faceBox) {
-      const sourceWidth = mode === 'camera'
-        ? (refElement as HTMLVideoElement).videoWidth
-        : (refElement as HTMLImageElement).naturalWidth;
-      const sourceHeight = mode === 'camera'
-        ? (refElement as HTMLVideoElement).videoHeight
-        : (refElement as HTMLImageElement).naturalHeight;
-
-      if (sourceWidth === 0 || sourceHeight === 0) return;
-
-      const scaleX = rect.width / sourceWidth;
-      const scaleY = rect.height / sourceHeight;
-
-      ctx.strokeStyle = '#10B981'; // Green
-      ctx.lineWidth = 3;
-      ctx.shadowColor = 'rgba(16, 185, 129, 0.5)';
-      ctx.shadowBlur = 8;
-
-      ctx.strokeRect(
-        faceBox.x * scaleX,
-        faceBox.y * scaleY,
-        faceBox.width * scaleX,
-        faceBox.height * scaleY
-      );
-
-      // Draw corner accents
-      const cornerLength = 20;
-      ctx.lineWidth = 4;
-      const x = faceBox.x * scaleX;
-      const y = faceBox.y * scaleY;
-      const w = faceBox.width * scaleX;
-      const h = faceBox.height * scaleY;
-
-      // Top-left
-      ctx.beginPath();
-      ctx.moveTo(x, y + cornerLength);
-      ctx.lineTo(x, y);
-      ctx.lineTo(x + cornerLength, y);
-      ctx.stroke();
-
-      // Top-right
-      ctx.beginPath();
-      ctx.moveTo(x + w - cornerLength, y);
-      ctx.lineTo(x + w, y);
-      ctx.lineTo(x + w, y + cornerLength);
-      ctx.stroke();
-
-      // Bottom-left
-      ctx.beginPath();
-      ctx.moveTo(x, y + h - cornerLength);
-      ctx.lineTo(x, y + h);
-      ctx.lineTo(x + cornerLength, y + h);
-      ctx.stroke();
-
-      // Bottom-right
-      ctx.beginPath();
-      ctx.moveTo(x + w - cornerLength, y + h);
-      ctx.lineTo(x + w, y + h);
-      ctx.lineTo(x + w, y + h - cornerLength);
-      ctx.stroke();
-
-      // Face detected label
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
-      ctx.font = '12px system-ui, sans-serif';
-      ctx.fillRect(x, y - 24, 100, 20);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('Wajah Terdeteksi', x + 8, y - 10);
-    }
-  }, [faceBox, mode, uploadImageLoaded]);
 
   const handleCapture = async () => {
     if (mode === 'camera' && videoRef.current && cameraReady) {
@@ -535,6 +507,22 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
     reader.readAsDataURL(file);
   };
 
+  const getStatusColor = () => {
+    switch (guidanceStatus) {
+      case 'aligned': return '#22d3ee'; // cyan-400
+      case 'too-far':
+      case 'too-close':
+      case 'not-centered': return '#fbbf24'; // amber-400
+      default: return '#f87171'; // red-400
+    }
+  };
+
+  const statusColor = getStatusColor();
+  // Glow opacity based on alignment and confidence (0.3 to 0.8)
+  const glowOpacity = guidanceStatus === 'aligned' 
+    ? Math.min(0.8, 0.4 + (faceConfidence * 0.4)) 
+    : 0.3;
+
   return (
     <section className="flex h-full max-h-[60vh] lg:max-h-full flex-col rounded-xl border border-[#E5E7EB] bg-white p-2 sm:p-4 min-h-0 overflow-hidden">
       {/* Mode Toggle */}
@@ -573,58 +561,51 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                   muted
                   autoPlay
                 />
-                {/* Oval face positioning guide - static overlay */}
+                {/* Oval face positioning guide - dynamic overlay */}
                 {cameraReady && !isAnalyzing && (
-                  <div className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 5 }}>
-                    {/* Vignette mask */}
-                    <svg className="absolute inset-0 w-full h-full">
-                      <defs>
-                        <mask id="ovalMask">
-                          <rect width="100%" height="100%" fill="white" />
-                          <ellipse
-                            cx="50%"
-                            cy="45%"
-                            rx="35%"
-                            ry="42%"
-                            fill="black"
-                          />
-                        </mask>
-                      </defs>
-                      <rect
-                        width="100%"
-                        height="100%"
-                        fill="rgba(0, 0, 0, 0.5)"
-                        mask="url(#ovalMask)"
-                      />
-                    </svg>
-                    {/* Oval guide border */}
-                    <svg className="absolute inset-0 w-full h-full">
-                      <ellipse
-                        cx="50%"
-                        cy="45%"
-                        rx="35%"
-                        ry="42%"
-                        fill="none"
-                        stroke="white"
-                        strokeWidth="2"
-                        strokeDasharray="8 4"
-                        opacity="0.8"
-                      />
-                    </svg>
-                    {/* Instruction text */}
-                    <div className="absolute top-[8%] left-0 right-0 flex justify-center">
-                      <div className="bg-black/60 px-3 py-1.5 rounded-full">
-                        <p className="text-white text-xs font-medium">Posisikan wajah di dalam oval</p>
+                  <>
+                    {/* 1. Outside Blur & Dimming (The "Mask") */}
+                    <div 
+                      className="absolute inset-0 z-10 pointer-events-none transition-all duration-500"
+                      style={{
+                        background: 'rgba(0,0,0,0.4)',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
+                        maskImage: 'radial-gradient(ellipse 36% 43% at 50% 45%, transparent 35%, black 45%)',
+                        WebkitMaskImage: 'radial-gradient(ellipse 36% 43% at 50% 45%, transparent 35%, black 45%)'
+                      }}
+                    />
+
+                    {/* 2. The Oval Guide (Visuals) */}
+                    <div 
+                      className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center"
+                      style={{ paddingBottom: '10%' }}
+                    >
+                      <div 
+                        className="relative w-[70%] h-[84%] rounded-[50%] transition-all duration-300 ease-out"
+                        style={{
+                          animation: 'breathe 2.5s ease-in-out infinite',
+                          boxShadow: `0 0 30px ${statusColor}${Math.floor(glowOpacity * 100)}, inset 0 0 20px ${statusColor}20`,
+                          border: `2px solid ${statusColor}40`
+                        }}
+                      >
+                        {/* Corner Anchors */}
+                        {/* Top Left */}
+                        <div className="absolute top-8 left-4 w-4 h-4 border-t-2 border-l-2 rounded-tl-lg transition-colors duration-300" 
+                             style={{ borderColor: statusColor }} />
+                        {/* Top Right */}
+                        <div className="absolute top-8 right-4 w-4 h-4 border-t-2 border-r-2 rounded-tr-lg transition-colors duration-300" 
+                             style={{ borderColor: statusColor }} />
+                        {/* Bottom Left */}
+                        <div className="absolute bottom-8 left-4 w-4 h-4 border-b-2 border-l-2 rounded-bl-lg transition-colors duration-300" 
+                             style={{ borderColor: statusColor }} />
+                        {/* Bottom Right */}
+                        <div className="absolute bottom-8 right-4 w-4 h-4 border-b-2 border-r-2 rounded-br-lg transition-colors duration-300" 
+                             style={{ borderColor: statusColor }} />
                       </div>
                     </div>
-                  </div>
+                  </>
                 )}
-                {/* Face detection overlay canvas */}
-                <canvas
-                  ref={overlayCanvasRef}
-                  className="absolute inset-0 w-full h-full pointer-events-none"
-                  style={{ zIndex: 10 }}
-                />
                 {!cameraReady && !error && (
                   <div className="absolute inset-0 flex items-center justify-center text-sm text-white/60">
                     Mengaktifkan kamera...
@@ -642,7 +623,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                       className="absolute inset-0 w-full h-full object-contain bg-black"
                       onLoad={() => setUploadImageLoaded(true)}
                     />
-                    {/* Face detection overlay for uploaded image */}
+                    {/* Face detection overlay for uploaded image - Removed for cleaner look
                     {uploadImageLoaded && (
                       <canvas
                         ref={overlayCanvasRef}
@@ -650,6 +631,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                         style={{ zIndex: 10 }}
                       />
                     )}
+                    */}
                   </>
                 ) : (
                   <div
@@ -774,7 +756,9 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
         <button
           disabled={isAnalyzing || uploadLoading || (mode === 'camera' && !cameraReady) || (mode === 'upload' && !uploadedImage)}
           onClick={handleCapture}
-          className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full border-4 border-white bg-[#3B82F6] text-white shadow-lg transition active:bg-[#2563EB] hover:bg-[#2563EB] disabled:opacity-40 absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 touch-manipulation"
+          className={`flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full border-4 border-white bg-[#3B82F6] text-white shadow-lg transition-all duration-300 active:bg-[#2563EB] hover:bg-[#2563EB] disabled:opacity-40 absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 touch-manipulation ${
+            guidanceStatus === 'aligned' ? 'scale-110 shadow-cyan-400/50 shadow-xl animate-pulse' : ''
+          }`}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="12" cy="12" r="8" />
