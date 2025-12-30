@@ -11,7 +11,8 @@
     "lint": "eslint",
     "init-db": "npx tsx data/init.ts",
     "inject-data": "npx tsx data/inject-data.ts",
-    "train-model": "npx tsx scripts/train-skin-model.ts"
+    "train-model": "npx tsx scripts/train-skin-model.ts",
+    "train-fast": "npx tsx scripts/train-fast.ts"
   },
   "dependencies": {
     "@mediapipe/face_detection": "^0.4.1646425229",

@@ -14,12 +14,13 @@ import * as path from 'path';
 // Configuration
 const CONFIG = {
     imageSize: 128,
-    batchSize: 16,
-    epochs: 25,
-    learningRate: 0.0005,
+    batchSize: 32,        // Increased for faster training
+    epochs: 10,
+    learningRate: 0.001,  // Slightly higher for faster convergence
     validationSplit: 0.2,
     modelSavePath: './public/models/skin-classifier',
     datasetPath: './data/training',
+    maxPerClass: 300,     // Limit images per class for faster training
 };
 
 // 6 categories with sufficient data (2500+ images total)
@@ -85,12 +86,15 @@ function collectTrainingData(): TrainingData[] {
         if (labelIndex === -1) continue;
 
         const files = fs.readdirSync(folderPath);
+        let count = 0;
         for (const file of files) {
+            if (count >= CONFIG.maxPerClass) break; // Limit per class
             if (/\.(jpg|jpeg|png|webp)$/i.test(file)) {
                 data.push({
                     imagePath: path.join(folderPath, file),
                     label: labelIndex,
                 });
+                count++;
             }
         }
     }

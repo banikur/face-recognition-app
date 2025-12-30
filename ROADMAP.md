@@ -25,7 +25,7 @@ This roadmap outlines the implementation plan to upgrade the application from he
 
 ### Goals
 - Replace heuristic face detection with CNN-based detection
-- Integrate MediaPipe Face Detection or TensorFlow.js face detection model
+- Integrate MediaPipe Face Detection and TensorFlow.js face detection model
 - Ensure real-time performance in browser
 
 ### Tasks
