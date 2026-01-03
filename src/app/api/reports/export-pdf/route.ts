@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllAnalysisLogs, getAnalysisLogsByDateRange } from '@/../../data/models';
+// @ts-expect-error - pdfkit doesn't have type definitions
 import PDFDocument from 'pdfkit';
 
 export async function GET(request: NextRequest) {
@@ -10,9 +11,9 @@ export async function GET(request: NextRequest) {
 
     let logs;
     if (startDate && endDate) {
-      logs = getAnalysisLogsByDateRange(startDate, endDate);
+      logs = await getAnalysisLogsByDateRange(startDate, endDate);
     } else {
-      logs = getAllAnalysisLogs();
+      logs = await getAllAnalysisLogs();
     }
 
     // Calculate statistics
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
     const doc = new PDFDocument();
     const chunks: Buffer[] = [];
 
-    doc.on('data', (chunk) => chunks.push(chunk));
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
 
     // Add content
     doc.fontSize(20).text('Skin Analysis Report', { align: 'center' });
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    return new NextResponse(buffer, {
+    return new NextResponse(Buffer.concat(chunks), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="analysis-report-${Date.now()}.pdf"`

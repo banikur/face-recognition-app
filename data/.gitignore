@@ -1,1 +1,11 @@
-training
+# Ignore all database files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Ignore backup files
+backups/
+*.backup
+*.bak

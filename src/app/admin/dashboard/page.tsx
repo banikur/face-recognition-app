@@ -42,7 +42,6 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [analysisLogs, setAnalysisLogs] = useState<AnalysisLog[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [loading, setLoading] = useState(false);
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [filterCondition, setFilterCondition] = useState('');
@@ -64,10 +63,10 @@ export default function AdminDashboard() {
     } else if (activeTab === 'reports') {
       fetchSummary();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const fetchProducts = async () => {
-    setLoading(true);
     try {
       const response = await fetch('/api/products');
       const data = await response.json();
@@ -75,11 +74,9 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error fetching products:', error);
     }
-    setLoading(false);
   };
 
   const fetchAnalysisLogs = async () => {
-    setLoading(true);
     try {
       let url = '/api/analysis-logs';
       const params = new URLSearchParams();
@@ -96,11 +93,9 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error fetching analysis logs:', error);
     }
-    setLoading(false);
   };
 
   const fetchSummary = async () => {
-    setLoading(true);
     try {
       let url = '/api/reports/summary';
       if (dateRange.start && dateRange.end) {
@@ -112,7 +107,6 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error fetching summary:', error);
     }
-    setLoading(false);
   };
 
   const handleProductSubmit = async (e: React.FormEvent) => {

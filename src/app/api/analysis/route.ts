@@ -15,13 +15,13 @@ function calculateScore(
 }
 
 // Get top 3 recommended products
-function getRecommendations(skinScores: {
+async function getRecommendations(skinScores: {
   oily: number;
   dry: number;
   normal: number;
   acne: number;
 }) {
-  const products = getAllProducts();
+  const products = await getAllProducts();
   
   const scoredProducts = products.map(product => ({
     ...product,
@@ -88,12 +88,12 @@ export async function POST(request: NextRequest) {
       acne: acne_score
     };
 
-    const recommendations = getRecommendations(skinScores);
+    const recommendations = await getRecommendations(skinScores);
     const dominant_condition = getDominantCondition(skinScores);
     const recommended_product_ids = recommendations.map(p => p.id).join(',');
 
     // Save to database
-    const logId = createAnalysisLog({
+    const logId = await createAnalysisLog({
       user_name,
       user_email: user_email || null,
       user_phone: user_phone || null,
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
       recommendations: recommendations.map(p => ({
         id: p.id,
         name: p.name,
-        brand: p.brand,
+        brand: p.brand_name || null,
         description: p.description,
         image_url: p.image_url,
         score: p.score

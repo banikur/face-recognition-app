@@ -10,11 +10,12 @@ export interface FaceDetectionResult {
   boundingBox: FaceBoundingBox | null;
   confidence: number;  // confidence score (0-1)
   faceDetected: boolean;
-  rawDetection?: any;  // raw detection object from MediaPipe
+  rawDetection?: unknown;  // raw detection object from MediaPipe
 }
 
 // Global face detection instance
-let faceDetectionModel: any | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let faceDetectionModel: unknown | null = null;
 let isModelLoaded = false;
 let modelInitializationPromise: Promise<boolean> | null = null;
 
@@ -56,15 +57,16 @@ export async function initializeFaceDetection(): Promise<boolean> {
 
       const faceDetection = await import('@tensorflow-models/face-detection');
       // Load the MediaPipe model for face detection
-      faceDetectionModel = await faceDetection.createDetector(
+      const detector = await faceDetection.createDetector(
         faceDetection.SupportedModels.MediaPipeFaceDetector,
         {
           runtime: 'tfjs',
           modelType: 'full', // Use full model for better accuracy
           maxFaces: 1, // Only detect one face for our use case
-          scoreThreshold: 0.3, // Lower threshold for better detection
+          // scoreThreshold: 0.3, // Lower threshold for better detection
         }
       );
+      faceDetectionModel = detector;
 
       isModelLoaded = true;
       console.log('Face detection model initialized successfully');
@@ -101,7 +103,16 @@ export async function detectFaces(imageElement: HTMLVideoElement | HTMLImageElem
   try {
     console.log('Performing face detection on image element...');
     // Perform face detection
-    const faces = await faceDetectionModel.estimateFaces(imageElement);
+    interface FaceDetector {
+      estimateFaces: (input: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement) => Promise<Array<{
+        box: { xMin: number; yMin: number; width: number; height: number };
+        score?: number;
+        keypoints?: Array<unknown>;
+      }>>;
+    }
+    
+    const detector = faceDetectionModel as FaceDetector;
+    const faces = await detector.estimateFaces(imageElement);
     console.log(`Face detection completed. Found ${faces?.length || 0} faces`);
 
     if (faces && faces.length > 0) {
@@ -159,8 +170,8 @@ export async function detectFaces(imageElement: HTMLVideoElement | HTMLImageElem
 export async function detectFacesFromImageData(imageData: ImageData | HTMLVideoElement | HTMLImageElement | HTMLCanvasElement): Promise<FaceDetectionResult> {
   // If we have an HTML element, defer to the detectFaces function
   if (imageData instanceof HTMLVideoElement ||
-      imageData instanceof HTMLImageElement ||
-      imageData instanceof HTMLCanvasElement) {
+    imageData instanceof HTMLImageElement ||
+    imageData instanceof HTMLCanvasElement) {
     return await detectFaces(imageData);
   }
 
@@ -176,10 +187,11 @@ export async function detectFacesFromImageData(imageData: ImageData | HTMLVideoE
     };
   }
 
-  canvas.width = (imageData as ImageData).width || 128; // Default fallback
-  canvas.height = (imageData as ImageData).height || 128; // Default fallback
+  const imgData = imageData as ImageData;
+  canvas.width = imgData.width || 128; // Default fallback
+  canvas.height = imgData.height || 128; // Default fallback
 
-  ctx.putImageData(imageData as ImageData, 0, 0);
+  ctx.putImageData(imgData, 0, 0);
 
   return await detectFaces(canvas);
 }
@@ -187,7 +199,7 @@ export async function detectFacesFromImageData(imageData: ImageData | HTMLVideoE
 /**
  * Get the current status of the face detection model
  */
-export function getFaceDetectionStatus(): { loaded: boolean; instance: any | null } {
+export function getFaceDetectionStatus(): { loaded: boolean; instance: unknown | null } {
   return { loaded: isModelLoaded, instance: faceDetectionModel };
 }
 

@@ -1,4 +1,4 @@
-import db from './database';
+import { supabase } from '@/lib/supabaseClient';
 
 // ============================================
 // INTERFACES
@@ -83,266 +83,531 @@ export interface SkinType {
   created_at: string;
 }
 
+export interface Rule {
+  id: number;
+  skin_type_id: number;
+  product_id: number;
+  confidence_score: number;
+}
+
 // ============================================
 // BRANDS CRUD
 // ============================================
 
-export const getAllBrands = (): Brand[] => {
-  return db.prepare('SELECT * FROM brands ORDER BY name').all() as Brand[];
+export const getAllBrands = async (): Promise<Brand[]> => {
+  const { data, error } = await supabase
+    .from('brands')
+    .select('*')
+    .order('name');
+
+  if (error) {
+    console.error('Error fetching brands:', error);
+    return [];
+  }
+
+  return data as Brand[];
 };
 
-export const getBrandById = (id: number): Brand | undefined => {
-  return db.prepare('SELECT * FROM brands WHERE id = ?').get(id) as Brand | undefined;
+export const getBrandById = async (id: number): Promise<Brand | undefined> => {
+  const { data, error } = await supabase
+    .from('brands')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) {
+    return undefined;
+  }
+
+  return data as Brand;
 };
 
-export const createBrand = (brand: Omit<Brand, 'id' | 'created_at'>): number => {
-  const result = db.prepare('INSERT INTO brands (name, logo_url) VALUES (?, ?)')
-    .run(brand.name, brand.logo_url || null);
-  return result.lastInsertRowid as number;
+export const createBrand = async (brand: Omit<Brand, 'id' | 'created_at'>): Promise<number> => {
+  const { data, error } = await supabase
+    .from('brands')
+    .insert({
+      name: brand.name,
+      logo_url: brand.logo_url || null
+    })
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    throw new Error(`Failed to create brand: ${error?.message || 'Unknown error'}`);
+  }
+
+  return data.id;
 };
 
-export const updateBrand = (id: number, brand: Partial<Omit<Brand, 'id' | 'created_at'>>): void => {
-  const fields: string[] = [];
-  const values: unknown[] = [];
+export const updateBrand = async (id: number, brand: Partial<Omit<Brand, 'id' | 'created_at'>>): Promise<void> => {
+  const updateData: Partial<Brand> = {};
+  if (brand.name !== undefined) updateData.name = brand.name;
+  if (brand.logo_url !== undefined) updateData.logo_url = brand.logo_url;
 
-  if (brand.name !== undefined) { fields.push('name = ?'); values.push(brand.name); }
-  if (brand.logo_url !== undefined) { fields.push('logo_url = ?'); values.push(brand.logo_url); }
+  if (Object.keys(updateData).length === 0) {
+    return;
+  }
 
-  if (fields.length > 0) {
-    values.push(id);
-    db.prepare(`UPDATE brands SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+  const { error } = await supabase
+    .from('brands')
+    .update(updateData)
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Failed to update brand: ${error.message}`);
   }
 };
 
-export const deleteBrand = (id: number): void => {
-  db.prepare('DELETE FROM brands WHERE id = ?').run(id);
+export const deleteBrand = async (id: number): Promise<void> => {
+  const { error } = await supabase
+    .from('brands')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Failed to delete brand: ${error.message}`);
+  }
 };
 
 // ============================================
 // PRODUCT CATEGORIES CRUD
 // ============================================
 
-export const getAllCategories = (): ProductCategory[] => {
-  return db.prepare('SELECT * FROM product_categories ORDER BY name').all() as ProductCategory[];
+export const getAllCategories = async (): Promise<ProductCategory[]> => {
+  const { data, error } = await supabase
+    .from('product_categories')
+    .select('*')
+    .order('name');
+
+  if (error) {
+    console.error('Error fetching categories:', error);
+    return [];
+  }
+
+  return data as ProductCategory[];
 };
 
-export const getCategoryById = (id: number): ProductCategory | undefined => {
-  return db.prepare('SELECT * FROM product_categories WHERE id = ?').get(id) as ProductCategory | undefined;
+export const getCategoryById = async (id: number): Promise<ProductCategory | undefined> => {
+  const { data, error } = await supabase
+    .from('product_categories')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) {
+    return undefined;
+  }
+
+  return data as ProductCategory;
 };
 
-export const createCategory = (category: Omit<ProductCategory, 'id' | 'created_at'>): number => {
-  const result = db.prepare('INSERT INTO product_categories (name, description) VALUES (?, ?)')
-    .run(category.name, category.description || null);
-  return result.lastInsertRowid as number;
+export const createCategory = async (category: Omit<ProductCategory, 'id' | 'created_at'>): Promise<number> => {
+  const { data, error } = await supabase
+    .from('product_categories')
+    .insert({
+      name: category.name,
+      description: category.description || null
+    })
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    throw new Error(`Failed to create category: ${error?.message || 'Unknown error'}`);
+  }
+
+  return data.id;
 };
 
-export const updateCategory = (id: number, category: Partial<Omit<ProductCategory, 'id' | 'created_at'>>): void => {
-  const fields: string[] = [];
-  const values: unknown[] = [];
+export const updateCategory = async (id: number, category: Partial<Omit<ProductCategory, 'id' | 'created_at'>>): Promise<void> => {
+  const updateData: Partial<ProductCategory> = {};
+  if (category.name !== undefined) updateData.name = category.name;
+  if (category.description !== undefined) updateData.description = category.description;
 
-  if (category.name !== undefined) { fields.push('name = ?'); values.push(category.name); }
-  if (category.description !== undefined) { fields.push('description = ?'); values.push(category.description); }
+  if (Object.keys(updateData).length === 0) {
+    return;
+  }
 
-  if (fields.length > 0) {
-    values.push(id);
-    db.prepare(`UPDATE product_categories SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+  const { error } = await supabase
+    .from('product_categories')
+    .update(updateData)
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Failed to update category: ${error.message}`);
   }
 };
 
-export const deleteCategory = (id: number): void => {
-  db.prepare('DELETE FROM product_categories WHERE id = ?').run(id);
+export const deleteCategory = async (id: number): Promise<void> => {
+  const { error } = await supabase
+    .from('product_categories')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Failed to delete category: ${error.message}`);
+  }
 };
 
 // ============================================
 // INGREDIENTS CRUD
 // ============================================
 
-export const getAllIngredients = (): Ingredient[] => {
-  return db.prepare('SELECT * FROM ingredients ORDER BY name').all() as Ingredient[];
+export const getAllIngredients = async (): Promise<Ingredient[]> => {
+  const { data, error } = await supabase
+    .from('ingredients')
+    .select('*')
+    .order('name');
+
+  if (error) {
+    console.error('Error fetching ingredients:', error);
+    return [];
+  }
+
+  return data as Ingredient[];
 };
 
-export const getIngredientById = (id: number): Ingredient | undefined => {
-  return db.prepare('SELECT * FROM ingredients WHERE id = ?').get(id) as Ingredient | undefined;
+export const getIngredientById = async (id: number): Promise<Ingredient | undefined> => {
+  const { data, error } = await supabase
+    .from('ingredients')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) {
+    return undefined;
+  }
+
+  return data as Ingredient;
 };
 
-export const createIngredient = (ingredient: Omit<Ingredient, 'id' | 'created_at'>): number => {
-  const result = db.prepare(
-    'INSERT INTO ingredients (name, effect, w_oily, w_dry, w_normal, w_acne) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(
-    ingredient.name,
-    ingredient.effect || null,
-    ingredient.w_oily || 0,
-    ingredient.w_dry || 0,
-    ingredient.w_normal || 0,
-    ingredient.w_acne || 0
-  );
-  return result.lastInsertRowid as number;
+export const createIngredient = async (ingredient: Omit<Ingredient, 'id' | 'created_at'>): Promise<number> => {
+  const { data, error } = await supabase
+    .from('ingredients')
+    .insert({
+      name: ingredient.name,
+      effect: ingredient.effect || null,
+      w_oily: ingredient.w_oily || 0,
+      w_dry: ingredient.w_dry || 0,
+      w_normal: ingredient.w_normal || 0,
+      w_acne: ingredient.w_acne || 0
+    })
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    throw new Error(`Failed to create ingredient: ${error?.message || 'Unknown error'}`);
+  }
+
+  return data.id;
 };
 
-export const updateIngredient = (id: number, ingredient: Partial<Omit<Ingredient, 'id' | 'created_at'>>): void => {
-  const fields: string[] = [];
-  const values: unknown[] = [];
+export const updateIngredient = async (id: number, ingredient: Partial<Omit<Ingredient, 'id' | 'created_at'>>): Promise<void> => {
+  const updateData: Partial<Ingredient> = {};
+  if (ingredient.name !== undefined) updateData.name = ingredient.name;
+  if (ingredient.effect !== undefined) updateData.effect = ingredient.effect;
+  if (ingredient.w_oily !== undefined) updateData.w_oily = ingredient.w_oily;
+  if (ingredient.w_dry !== undefined) updateData.w_dry = ingredient.w_dry;
+  if (ingredient.w_normal !== undefined) updateData.w_normal = ingredient.w_normal;
+  if (ingredient.w_acne !== undefined) updateData.w_acne = ingredient.w_acne;
 
-  if (ingredient.name !== undefined) { fields.push('name = ?'); values.push(ingredient.name); }
-  if (ingredient.effect !== undefined) { fields.push('effect = ?'); values.push(ingredient.effect); }
-  if (ingredient.w_oily !== undefined) { fields.push('w_oily = ?'); values.push(ingredient.w_oily); }
-  if (ingredient.w_dry !== undefined) { fields.push('w_dry = ?'); values.push(ingredient.w_dry); }
-  if (ingredient.w_normal !== undefined) { fields.push('w_normal = ?'); values.push(ingredient.w_normal); }
-  if (ingredient.w_acne !== undefined) { fields.push('w_acne = ?'); values.push(ingredient.w_acne); }
+  if (Object.keys(updateData).length === 0) {
+    return;
+  }
 
-  if (fields.length > 0) {
-    values.push(id);
-    db.prepare(`UPDATE ingredients SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+  const { error } = await supabase
+    .from('ingredients')
+    .update(updateData)
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Failed to update ingredient: ${error.message}`);
   }
 };
 
-export const deleteIngredient = (id: number): void => {
-  db.prepare('DELETE FROM ingredients WHERE id = ?').run(id);
+export const deleteIngredient = async (id: number): Promise<void> => {
+  const { error } = await supabase
+    .from('ingredients')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Failed to delete ingredient: ${error.message}`);
+  }
 };
 
 // ============================================
 // RECOMMENDATIONS CRUD
 // ============================================
 
-export const getAllRecommendations = (): Recommendation[] => {
-  return db.prepare('SELECT * FROM recommendations ORDER BY condition').all() as Recommendation[];
+export const getAllRecommendations = async (): Promise<Recommendation[]> => {
+  const { data, error } = await supabase
+    .from('recommendations')
+    .select('*')
+    .order('condition');
+
+  if (error) {
+    console.error('Error fetching recommendations:', error);
+    return [];
+  }
+
+  return data as Recommendation[];
 };
 
-export const getRecommendationById = (id: number): Recommendation | undefined => {
-  return db.prepare('SELECT * FROM recommendations WHERE id = ?').get(id) as Recommendation | undefined;
+export const getRecommendationById = async (id: number): Promise<Recommendation | undefined> => {
+  const { data, error } = await supabase
+    .from('recommendations')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) {
+    return undefined;
+  }
+
+  return data as Recommendation;
 };
 
-export const getRecommendationByCondition = (condition: string): Recommendation | undefined => {
-  return db.prepare('SELECT * FROM recommendations WHERE condition = ?').get(condition) as Recommendation | undefined;
+export const getRecommendationByCondition = async (condition: string): Promise<Recommendation | undefined> => {
+  const { data, error } = await supabase
+    .from('recommendations')
+    .select('*')
+    .eq('condition', condition)
+    .single();
+
+  if (error || !data) {
+    return undefined;
+  }
+
+  return data as Recommendation;
 };
 
-export const createRecommendation = (rec: Omit<Recommendation, 'id' | 'created_at'>): number => {
-  const result = db.prepare(
-    'INSERT INTO recommendations (condition, title, description, tips) VALUES (?, ?, ?, ?)'
-  ).run(rec.condition, rec.title, rec.description || null, rec.tips || null);
-  return result.lastInsertRowid as number;
+export const createRecommendation = async (rec: Omit<Recommendation, 'id' | 'created_at'>): Promise<number> => {
+  const { data, error } = await supabase
+    .from('recommendations')
+    .insert({
+      condition: rec.condition,
+      title: rec.title,
+      description: rec.description || null,
+      tips: rec.tips || null
+    })
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    throw new Error(`Failed to create recommendation: ${error?.message || 'Unknown error'}`);
+  }
+
+  return data.id;
 };
 
-export const updateRecommendation = (id: number, rec: Partial<Omit<Recommendation, 'id' | 'created_at'>>): void => {
-  const fields: string[] = [];
-  const values: unknown[] = [];
+export const updateRecommendation = async (id: number, rec: Partial<Omit<Recommendation, 'id' | 'created_at'>>): Promise<void> => {
+  const updateData: Partial<Recommendation> = {};
+  if (rec.condition !== undefined) updateData.condition = rec.condition;
+  if (rec.title !== undefined) updateData.title = rec.title;
+  if (rec.description !== undefined) updateData.description = rec.description;
+  if (rec.tips !== undefined) updateData.tips = rec.tips;
 
-  if (rec.condition !== undefined) { fields.push('condition = ?'); values.push(rec.condition); }
-  if (rec.title !== undefined) { fields.push('title = ?'); values.push(rec.title); }
-  if (rec.description !== undefined) { fields.push('description = ?'); values.push(rec.description); }
-  if (rec.tips !== undefined) { fields.push('tips = ?'); values.push(rec.tips); }
+  if (Object.keys(updateData).length === 0) {
+    return;
+  }
 
-  if (fields.length > 0) {
-    values.push(id);
-    db.prepare(`UPDATE recommendations SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+  const { error } = await supabase
+    .from('recommendations')
+    .update(updateData)
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Failed to update recommendation: ${error.message}`);
   }
 };
 
-export const deleteRecommendation = (id: number): void => {
-  db.prepare('DELETE FROM recommendations WHERE id = ?').run(id);
+export const deleteRecommendation = async (id: number): Promise<void> => {
+  const { error } = await supabase
+    .from('recommendations')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Failed to delete recommendation: ${error.message}`);
+  }
 };
 
 // ============================================
 // PRODUCTS CRUD
 // ============================================
 
-export const getAllProducts = (): Product[] => {
-  return db.prepare(`
-    SELECT p.*, b.name as brand_name, c.name as category_name
-    FROM products p
-    LEFT JOIN brands b ON p.brand_id = b.id
-    LEFT JOIN product_categories c ON p.category_id = c.id
-    ORDER BY p.name
-  `).all() as Product[];
+export const getAllProducts = async (): Promise<Product[]> => {
+  const { data, error } = await supabase
+    .from('products')
+    .select(`
+      *,
+      brands:brand_id(name),
+      product_categories:category_id(name)
+    `)
+    .order('name');
+
+  if (error) {
+    console.error('Error fetching products:', error);
+    return [];
+  }
+
+  // Map the joined data to match the Product interface
+  return (data || []).map((p: unknown) => {
+    const product = p as Product & {
+      brands: { name: string } | null;
+      product_categories: { name: string } | null;
+    };
+    return {
+      ...product,
+      brand_name: product.brands?.name,
+      category_name: product.product_categories?.name
+    } as Product;
+  });
 };
 
-export const getProductById = (id: number): Product | undefined => {
-  return db.prepare(`
-    SELECT p.*, b.name as brand_name, c.name as category_name
-    FROM products p
-    LEFT JOIN brands b ON p.brand_id = b.id
-    LEFT JOIN product_categories c ON p.category_id = c.id
-    WHERE p.id = ?
-  `).get(id) as Product | undefined;
+export const getProductById = async (id: number): Promise<Product | undefined> => {
+  const { data, error } = await supabase
+    .from('products')
+    .select(`
+      *,
+      brands:brand_id(name),
+      product_categories:category_id(name)
+    `)
+    .eq('id', id)
+    .single();
+
+  if (error || !data) {
+    return undefined;
+  }
+
+  const product = data as Product & {
+    brands: { name: string } | null;
+    product_categories: { name: string } | null;
+  };
+
+  return {
+    ...product,
+    brand_name: product.brands?.name,
+    category_name: product.product_categories?.name
+  } as Product;
 };
 
-export const getProductIngredients = (productId: number): Ingredient[] => {
-  return db.prepare(`
-    SELECT i.* FROM ingredients i
-    JOIN product_ingredients pi ON i.id = pi.ingredient_id
-    WHERE pi.product_id = ?
-    ORDER BY i.name
-  `).all(productId) as Ingredient[];
+export const getProductIngredients = async (productId: number): Promise<Ingredient[]> => {
+  const { data, error } = await supabase
+    .from('product_ingredients')
+    .select(`
+      ingredients:ingredient_id(*)
+    `)
+    .eq('product_id', productId);
+
+  if (error) {
+    console.error('Error fetching product ingredients:', error);
+    return [];
+  }
+
+  // Supabase returns nested structure: { ingredients: Ingredient | Ingredient[] }
+  return (data || []).flatMap((pi: { ingredients: Ingredient | Ingredient[] | null }) => {
+    if (!pi.ingredients) return [];
+    return Array.isArray(pi.ingredients) ? pi.ingredients : [pi.ingredients];
+  });
 };
 
-export const createProduct = (product: {
+export const createProduct = async (product: {
   name: string;
   brand_id?: number | null;
   category_id?: number | null;
   description?: string | null;
   image_url?: string | null;
   ingredient_ids?: number[];
-}): number => {
-  const result = db.prepare(
-    'INSERT INTO products (name, brand_id, category_id, description, image_url, w_oily, w_dry, w_normal, w_acne) VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0)'
-  ).run(
-    product.name,
-    product.brand_id || null,
-    product.category_id || null,
-    product.description || null,
-    product.image_url || null
-  );
+}): Promise<number> => {
+  const { data, error } = await supabase
+    .from('products')
+    .insert({
+      name: product.name,
+      brand_id: product.brand_id || null,
+      category_id: product.category_id || null,
+      description: product.description || null,
+      image_url: product.image_url || null,
+      w_oily: 0,
+      w_dry: 0,
+      w_normal: 0,
+      w_acne: 0
+    })
+    .select('id')
+    .single();
 
-  const productId = result.lastInsertRowid as number;
+  if (error || !data) {
+    throw new Error(`Failed to create product: ${error?.message || 'Unknown error'}`);
+  }
+
+  const productId = data.id;
 
   // Add ingredients and calculate weights
   if (product.ingredient_ids && product.ingredient_ids.length > 0) {
-    setProductIngredients(productId, product.ingredient_ids);
+    await setProductIngredients(productId, product.ingredient_ids);
   }
 
   return productId;
 };
 
-export const updateProduct = (id: number, product: {
+export const updateProduct = async (id: number, product: {
   name?: string;
   brand_id?: number | null;
   category_id?: number | null;
   description?: string | null;
   image_url?: string | null;
   ingredient_ids?: number[];
-}): void => {
-  const fields: string[] = [];
-  const values: unknown[] = [];
+}): Promise<void> => {
+  const updateData: Partial<Product> = {};
+  if (product.name !== undefined) updateData.name = product.name;
+  if (product.brand_id !== undefined) updateData.brand_id = product.brand_id;
+  if (product.category_id !== undefined) updateData.category_id = product.category_id;
+  if (product.description !== undefined) updateData.description = product.description;
+  if (product.image_url !== undefined) updateData.image_url = product.image_url;
 
-  if (product.name !== undefined) { fields.push('name = ?'); values.push(product.name); }
-  if (product.brand_id !== undefined) { fields.push('brand_id = ?'); values.push(product.brand_id); }
-  if (product.category_id !== undefined) { fields.push('category_id = ?'); values.push(product.category_id); }
-  if (product.description !== undefined) { fields.push('description = ?'); values.push(product.description); }
-  if (product.image_url !== undefined) { fields.push('image_url = ?'); values.push(product.image_url); }
+  if (Object.keys(updateData).length > 0) {
+    const { error } = await supabase
+      .from('products')
+      .update(updateData)
+      .eq('id', id);
 
-  if (fields.length > 0) {
-    values.push(id);
-    db.prepare(`UPDATE products SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+    if (error) {
+      throw new Error(`Failed to update product: ${error.message}`);
+    }
   }
 
   // Update ingredients if provided
   if (product.ingredient_ids !== undefined) {
-    setProductIngredients(id, product.ingredient_ids);
+    await setProductIngredients(id, product.ingredient_ids);
   }
 };
 
-export const setProductIngredients = (productId: number, ingredientIds: number[]): void => {
+export const setProductIngredients = async (productId: number, ingredientIds: number[]): Promise<void> => {
   // Clear existing ingredients
-  db.prepare('DELETE FROM product_ingredients WHERE product_id = ?').run(productId);
+  await supabase
+    .from('product_ingredients')
+    .delete()
+    .eq('product_id', productId);
 
   // Add new ingredients
-  const insert = db.prepare('INSERT INTO product_ingredients (product_id, ingredient_id) VALUES (?, ?)');
+  if (ingredientIds.length > 0) {
+    const { error: insertError } = await supabase
+      .from('product_ingredients')
+      .insert(ingredientIds.map(ingredientId => ({
+        product_id: productId,
+        ingredient_id: ingredientId
+      })));
+
+    if (insertError) {
+      throw new Error(`Failed to set product ingredients: ${insertError.message}`);
+    }
+  }
+
+  // Calculate and update product weights
   let totalOily = 0, totalDry = 0, totalNormal = 0, totalAcne = 0;
 
   for (const ingredientId of ingredientIds) {
-    insert.run(productId, ingredientId);
-
-    const ingredient = getIngredientById(ingredientId);
+    const ingredient = await getIngredientById(ingredientId);
     if (ingredient) {
       totalOily += ingredient.w_oily;
       totalDry += ingredient.w_dry;
@@ -353,70 +618,138 @@ export const setProductIngredients = (productId: number, ingredientIds: number[]
 
   // Normalize and update product weights
   const max = Math.max(totalOily, totalDry, totalNormal, totalAcne, 1);
-  db.prepare('UPDATE products SET w_oily = ?, w_dry = ?, w_normal = ?, w_acne = ? WHERE id = ?').run(
-    Math.min(totalOily / max, 1),
-    Math.min(totalDry / max, 1),
-    Math.min(totalNormal / max, 1),
-    Math.min(totalAcne / max, 1),
-    productId
-  );
+  const { error: updateError } = await supabase
+    .from('products')
+    .update({
+      w_oily: Math.min(totalOily / max, 1),
+      w_dry: Math.min(totalDry / max, 1),
+      w_normal: Math.min(totalNormal / max, 1),
+      w_acne: Math.min(totalAcne / max, 1)
+    })
+    .eq('id', productId);
+
+  if (updateError) {
+    throw new Error(`Failed to update product weights: ${updateError.message}`);
+  }
 };
 
-export const deleteProduct = (id: number): void => {
-  db.prepare('DELETE FROM products WHERE id = ?').run(id);
+export const deleteProduct = async (id: number): Promise<void> => {
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Failed to delete product: ${error.message}`);
+  }
 };
 
 // ============================================
 // ANALYSIS LOGS CRUD
 // ============================================
 
-export const getAllAnalysisLogs = (): AnalysisLog[] => {
-  return db.prepare('SELECT * FROM analysis_logs ORDER BY created_at DESC').all() as AnalysisLog[];
+export const getAllAnalysisLogs = async (): Promise<AnalysisLog[]> => {
+  const { data, error } = await supabase
+    .from('analysis_logs')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching analysis logs:', error);
+    return [];
+  }
+
+  return data as AnalysisLog[];
 };
 
-export const getAnalysisLogById = (id: number): AnalysisLog | undefined => {
-  return db.prepare('SELECT * FROM analysis_logs WHERE id = ?').get(id) as AnalysisLog | undefined;
+export const getAnalysisLogById = async (id: number): Promise<AnalysisLog | undefined> => {
+  const { data, error } = await supabase
+    .from('analysis_logs')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) {
+    return undefined;
+  }
+
+  return data as AnalysisLog;
 };
 
-export const getAnalysisLogsByDateRange = (startDate: string, endDate: string): AnalysisLog[] => {
-  return db.prepare('SELECT * FROM analysis_logs WHERE created_at BETWEEN ? AND ? ORDER BY created_at DESC')
-    .all(startDate, endDate) as AnalysisLog[];
+export const getAnalysisLogsByDateRange = async (startDate: string, endDate: string): Promise<AnalysisLog[]> => {
+  const { data, error } = await supabase
+    .from('analysis_logs')
+    .select('*')
+    .gte('created_at', startDate)
+    .lte('created_at', endDate)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching analysis logs by date range:', error);
+    return [];
+  }
+
+  return data as AnalysisLog[];
 };
 
-export const getAnalysisLogsByCondition = (condition: string): AnalysisLog[] => {
-  return db.prepare('SELECT * FROM analysis_logs WHERE dominant_condition = ? ORDER BY created_at DESC')
-    .all(condition) as AnalysisLog[];
+export const getAnalysisLogsByCondition = async (condition: string): Promise<AnalysisLog[]> => {
+  const { data, error } = await supabase
+    .from('analysis_logs')
+    .select('*')
+    .eq('dominant_condition', condition)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching analysis logs by condition:', error);
+    return [];
+  }
+
+  return data as AnalysisLog[];
 };
 
-export const createAnalysisLog = (log: Omit<AnalysisLog, 'id' | 'created_at'>): number => {
-  const result = db.prepare(
-    'INSERT INTO analysis_logs (user_name, user_email, user_phone, user_age, oily_score, dry_score, normal_score, acne_score, dominant_condition, recommended_product_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(
-    log.user_name,
-    log.user_email,
-    log.user_phone,
-    log.user_age,
-    log.oily_score,
-    log.dry_score,
-    log.normal_score,
-    log.acne_score,
-    log.dominant_condition,
-    log.recommended_product_ids
-  );
-  return result.lastInsertRowid as number;
+export const createAnalysisLog = async (log: Omit<AnalysisLog, 'id' | 'created_at'>): Promise<number> => {
+  const { data, error } = await supabase
+    .from('analysis_logs')
+    .insert({
+      user_name: log.user_name,
+      user_email: log.user_email,
+      user_phone: log.user_phone,
+      user_age: log.user_age,
+      oily_score: log.oily_score,
+      dry_score: log.dry_score,
+      normal_score: log.normal_score,
+      acne_score: log.acne_score,
+      dominant_condition: log.dominant_condition,
+      recommended_product_ids: log.recommended_product_ids
+    })
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    throw new Error(`Failed to create analysis log: ${error?.message || 'Unknown error'}`);
+  }
+
+  return data.id;
 };
 
-export const deleteAnalysisLog = (id: number): void => {
-  db.prepare('DELETE FROM analysis_logs WHERE id = ?').run(id);
+export const deleteAnalysisLog = async (id: number): Promise<void> => {
+  const { error } = await supabase
+    .from('analysis_logs')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Failed to delete analysis log: ${error.message}`);
+  }
 };
 
 // ============================================
 // LEGACY: Skin Types (backward compatibility)
 // ============================================
 
-export const getAllSkinTypes = (): SkinType[] => {
+export const getAllSkinTypes = async (): Promise<SkinType[]> => {
   // Return recommendations as skin types for backward compatibility
-  const recs = getAllRecommendations();
+  const recs = await getAllRecommendations();
   return recs.map(r => ({
     id: r.id,
     name: r.condition,
@@ -425,13 +758,13 @@ export const getAllSkinTypes = (): SkinType[] => {
   }));
 };
 
-export const getSkinTypeById = (id: number): SkinType | undefined => {
-  const rec = getRecommendationById(id);
+export const getSkinTypeById = async (id: number): Promise<SkinType | undefined> => {
+  const rec = await getRecommendationById(id);
   if (!rec) return undefined;
   return { id: rec.id, name: rec.condition, description: rec.description, created_at: rec.created_at };
 };
 
-export const createSkinType = (skinType: Omit<SkinType, 'id' | 'created_at'>): number => {
+export const createSkinType = async (skinType: Omit<SkinType, 'id' | 'created_at'>): Promise<number> => {
   return createRecommendation({
     condition: skinType.name,
     title: skinType.name,
@@ -440,26 +773,26 @@ export const createSkinType = (skinType: Omit<SkinType, 'id' | 'created_at'>): n
   });
 };
 
-export const updateSkinType = (id: number, skinType: Partial<Omit<SkinType, 'id' | 'created_at'>>): void => {
-  updateRecommendation(id, {
+export const updateSkinType = async (id: number, skinType: Partial<Omit<SkinType, 'id' | 'created_at'>>): Promise<void> => {
+  await updateRecommendation(id, {
     condition: skinType.name,
     description: skinType.description
   });
 };
 
-export const deleteSkinType = (id: number): void => {
-  deleteRecommendation(id);
+export const deleteSkinType = async (id: number): Promise<void> => {
+  await deleteRecommendation(id);
 };
 
 // ============================================
 // WEIGHT CALCULATION (from DB ingredients)
 // ============================================
 
-export const calculateWeights = (ingredientIds: number[]): { w_oily: number; w_dry: number; w_normal: number; w_acne: number } => {
+export const calculateWeights = async (ingredientIds: number[]): Promise<{ w_oily: number; w_dry: number; w_normal: number; w_acne: number }> => {
   let oily = 0, dry = 0, normal = 0, acne = 0;
 
   for (const id of ingredientIds) {
-    const ingredient = getIngredientById(id);
+    const ingredient = await getIngredientById(id);
     if (ingredient) {
       oily += ingredient.w_oily;
       dry += ingredient.w_dry;
@@ -475,4 +808,70 @@ export const calculateWeights = (ingredientIds: number[]): { w_oily: number; w_d
     w_normal: Math.min(normal / max, 1),
     w_acne: Math.min(acne / max, 1),
   };
+};
+
+// ============================================
+// RULES CRUD
+// ============================================
+
+export const getAllRules = async (): Promise<Rule[]> => {
+  const { data, error } = await supabase
+    .from('rules')
+    .select('*');
+
+  if (error) {
+    console.error('Error fetching rules:', error);
+    return [];
+  }
+
+  return data as Rule[];
+};
+
+export const createRule = async (rule: Omit<Rule, 'id'>): Promise<number> => {
+  const { data, error } = await supabase
+    .from('rules')
+    .insert({
+      skin_type_id: rule.skin_type_id,
+      product_id: rule.product_id,
+      confidence_score: rule.confidence_score
+    })
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    throw new Error(`Failed to create rule: ${error?.message || 'Unknown error'}`);
+  }
+
+  return data.id;
+};
+
+export const updateRule = async (id: number, rule: Partial<Rule>): Promise<void> => {
+  const updateData: Partial<Rule> = {};
+  if (rule.skin_type_id !== undefined) updateData.skin_type_id = rule.skin_type_id;
+  if (rule.product_id !== undefined) updateData.product_id = rule.product_id;
+  if (rule.confidence_score !== undefined) updateData.confidence_score = rule.confidence_score;
+
+  if (Object.keys(updateData).length === 0) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from('rules')
+    .update(updateData)
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Failed to update rule: ${error.message}`);
+  }
+};
+
+export const deleteRule = async (id: number): Promise<void> => {
+  const { error } = await supabase
+    .from('rules')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Failed to delete rule: ${error.message}`);
+  }
 };

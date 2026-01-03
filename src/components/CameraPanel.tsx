@@ -15,7 +15,6 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const uploadedImageRef = useRef<HTMLImageElement | null>(null);
   const animationFrameId = useRef<number | null>(null);
 
@@ -33,22 +32,33 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   const getUserMediaWithFallback = (): ((constraints: MediaStreamConstraints) => Promise<MediaStream>) | null => {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       return navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
-    } else if ((navigator as any).getUserMedia) {
+    }
+    
+    // Type-safe fallback for legacy browsers
+    interface NavigatorWithGetUserMedia extends Navigator {
+      getUserMedia?: (constraints: MediaStreamConstraints, success: (stream: MediaStream) => void, error: (error: Error) => void) => void;
+      webkitGetUserMedia?: (constraints: MediaStreamConstraints, success: (stream: MediaStream) => void, error: (error: Error) => void) => void;
+      mozGetUserMedia?: (constraints: MediaStreamConstraints, success: (stream: MediaStream) => void, error: (error: Error) => void) => void;
+    }
+    
+    const nav = navigator as NavigatorWithGetUserMedia;
+    
+    if (nav.getUserMedia) {
       return (constraints: MediaStreamConstraints) => {
         return new Promise((resolve, reject) => {
-          (navigator as any).getUserMedia(constraints, resolve, reject);
+          nav.getUserMedia!(constraints, resolve, reject);
         });
       };
-    } else if ((navigator as any).webkitGetUserMedia) {
+    } else if (nav.webkitGetUserMedia) {
       return (constraints: MediaStreamConstraints) => {
         return new Promise((resolve, reject) => {
-          (navigator as any).webkitGetUserMedia(constraints, resolve, reject);
+          nav.webkitGetUserMedia!(constraints, resolve, reject);
         });
       };
-    } else if ((navigator as any).mozGetUserMedia) {
+    } else if (nav.mozGetUserMedia) {
       return (constraints: MediaStreamConstraints) => {
         return new Promise((resolve, reject) => {
-          (navigator as any).mozGetUserMedia(constraints, resolve, reject);
+          nav.mozGetUserMedia!(constraints, resolve, reject);
         });
       };
     }
@@ -80,71 +90,6 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
     }
 
     let stream: MediaStream | null = null;
-
-    // Real-time face detection loop
-    const detectFaceLoop = async () => {
-      if (!videoRef.current || !cameraReady || mode !== 'camera') {
-        animationFrameId.current = requestAnimationFrame(detectFaceLoop);
-        return;
-      }
-
-      try {
-        const result = await detectFaces(videoRef.current);
-        if (result.faceDetected && result.boundingBox) {
-          const video = videoRef.current;
-          const videoWidth = video.videoWidth;
-          const videoHeight = video.videoHeight;
-
-          // Convert normalized coordinates to pixel coordinates
-          const box = {
-            x: result.boundingBox.x * videoWidth,
-            y: result.boundingBox.y * videoHeight,
-            width: result.boundingBox.width * videoWidth,
-            height: result.boundingBox.height * videoHeight
-          };
-          setFaceBox(box);
-
-          // Update confidence
-          setFaceConfidence(result.confidence || 0);
-
-          // Calculate guidance status
-          const faceWidth = result.boundingBox.width;
-          const faceHeight = result.boundingBox.height;
-          const centerX = result.boundingBox.x + faceWidth / 2;
-          const centerY = result.boundingBox.y + faceHeight / 2;
-
-          // Thresholds
-          const MIN_SIZE = 0.25; // Face must be at least 25% of screen width
-          const MAX_SIZE = 0.85; // Face must be at most 85% of screen width
-          const CENTER_TOLERANCE_X = 0.15;
-          const CENTER_TOLERANCE_Y = 0.2;
-
-          // Determine status
-          const isCenteredX = Math.abs(centerX - 0.5) < CENTER_TOLERANCE_X;
-          const isCenteredY = Math.abs(centerY - 0.5) < CENTER_TOLERANCE_Y;
-          
-          if (faceWidth < MIN_SIZE) {
-            setGuidanceStatus('too-far');
-          } else if (faceWidth > MAX_SIZE) {
-            setGuidanceStatus('too-close');
-          } else if (!isCenteredX || !isCenteredY) {
-            setGuidanceStatus('not-centered');
-          } else {
-            setGuidanceStatus('aligned');
-          }
-        } else {
-          setFaceBox(null);
-          setGuidanceStatus('searching');
-        }
-      } catch (err) {
-        console.error('Face detection error:', err);
-      }
-
-      // Continue loop (throttled to ~10fps for performance)
-      setTimeout(() => {
-        animationFrameId.current = requestAnimationFrame(detectFaceLoop);
-      }, 100);
-    };
 
     const initCamera = async () => {
       try {
@@ -219,26 +164,33 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
             }, 100);
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Camera init error:', err);
+
+        interface ErrorWithDetails {
+          message?: string;
+          name?: string;
+        }
+
+        const errorObj = err as ErrorWithDetails;
 
         // More specific error messages
         let errorMessage = 'Gagal mengakses kamera';
 
-        if (err.message === 'HTTPS_REQUIRED') {
+        if (errorObj.message === 'HTTPS_REQUIRED') {
           errorMessage = 'Akses kamera memerlukan HTTPS. Pastikan mengakses melalui HTTPS atau gunakan localhost. Jika mengakses via IP, gunakan https:// atau setup SSL certificate.';
-        } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        } else if (errorObj.name === 'NotAllowedError' || errorObj.name === 'PermissionDeniedError') {
           errorMessage = 'Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser.';
-        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        } else if (errorObj.name === 'NotFoundError' || errorObj.name === 'DevicesNotFoundError') {
           errorMessage = 'Kamera tidak ditemukan. Pastikan perangkat memiliki kamera.';
-        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        } else if (errorObj.name === 'NotReadableError' || errorObj.name === 'TrackStartError') {
           errorMessage = 'Kamera sedang digunakan aplikasi lain. Tutup aplikasi lain yang menggunakan kamera.';
-        } else if (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError') {
+        } else if (errorObj.name === 'OverconstrainedError' || errorObj.name === 'ConstraintNotSatisfiedError') {
           errorMessage = 'Kamera tidak mendukung pengaturan yang diminta.';
-        } else if (err.name === 'SecurityError') {
+        } else if (errorObj.name === 'SecurityError') {
           errorMessage = 'Akses kamera diblokir. Pastikan menggunakan HTTPS atau localhost.';
-        } else if (err.message) {
-          errorMessage = err.message;
+        } else if (errorObj.message) {
+          errorMessage = errorObj.message;
         }
 
         setError(errorMessage);
@@ -259,7 +211,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
 
   // Start face detection loop when camera is ready
   useEffect(() => {
-    if (cameraReady && mode === 'camera' && !animationFrameId.current) {
+    if (cameraReady && mode === 'camera') {
       const startDetection = async () => {
         if (!videoRef.current) return;
 
@@ -301,7 +253,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
               // Determine status
               const isCenteredX = Math.abs(centerX - 0.5) < CENTER_TOLERANCE_X;
               const isCenteredY = Math.abs(centerY - 0.5) < CENTER_TOLERANCE_Y;
-              
+
               if (faceWidth < MIN_SIZE) {
                 setGuidanceStatus('too-far');
               } else if (faceWidth > MAX_SIZE) {
@@ -338,6 +290,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
         animationFrameId.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cameraReady, mode]);
 
   // Detect face in uploaded image when loaded
@@ -398,7 +351,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
 
   const analyzeFromCanvas = async (canvas: HTMLCanvasElement): Promise<AnalysisResult> => {
     const ctx = canvas.getContext('2d');
-    if (!ctx) return { skinType: 'Error', scores: { oily: 0, dry: 0, normal: 0, acne: 0 }, faceDetected: false };
+    if (!ctx) return { skinType: 'Error', scores: { acne: 0, blackheads: 0, clear_skin: 0, dark_spots: 0, puffy_eyes: 0, wrinkles: 0 }, faceDetected: false };
 
     // Use 9:14 aspect ratio for better face detection (consistent with UI)
     const targetAspectRatio = 9 / 14;
@@ -429,7 +382,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
     const faceDetected = detectionResult.faceDetected && detectionResult.confidence > 0.2;
 
     if (!faceDetected) {
-      return { skinType: 'Unknown', scores: { oily: 0, dry: 0, normal: 0, acne: 0 }, faceDetected: false };
+      return { skinType: 'Unknown', scores: { acne: 0, blackheads: 0, clear_skin: 0, dark_spots: 0, puffy_eyes: 0, wrinkles: 0 }, faceDetected: false };
     }
 
     // CNN-based skin classification (replaces heuristic)
@@ -449,7 +402,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
       };
     } catch (error) {
       console.error('CNN classification error:', error);
-      return { skinType: 'Error', scores: { oily: 0, dry: 0, normal: 0, acne: 0 }, faceDetected: false };
+      return { skinType: 'Error', scores: { acne: 0, blackheads: 0, clear_skin: 0, dark_spots: 0, puffy_eyes: 0, wrinkles: 0 }, faceDetected: false };
     }
   };
 
@@ -519,8 +472,8 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
 
   const statusColor = getStatusColor();
   // Glow opacity based on alignment and confidence (0.3 to 0.8)
-  const glowOpacity = guidanceStatus === 'aligned' 
-    ? Math.min(0.8, 0.4 + (faceConfidence * 0.4)) 
+  const glowOpacity = guidanceStatus === 'aligned'
+    ? Math.min(0.8, 0.4 + (faceConfidence * 0.4))
     : 0.3;
 
   return (
@@ -565,7 +518,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                 {cameraReady && !isAnalyzing && (
                   <>
                     {/* 1. Outside Blur & Dimming (The "Mask") */}
-                    <div 
+                    <div
                       className="absolute inset-0 z-10 pointer-events-none transition-all duration-500"
                       style={{
                         background: 'rgba(0,0,0,0.4)',
@@ -577,11 +530,11 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                     />
 
                     {/* 2. The Oval Guide (Visuals) */}
-                    <div 
+                    <div
                       className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center"
                       style={{ paddingBottom: '10%' }}
                     >
-                      <div 
+                      <div
                         className="relative w-[70%] h-[84%] rounded-[50%] transition-all duration-300 ease-out"
                         style={{
                           animation: 'breathe 2.5s ease-in-out infinite',
@@ -591,17 +544,17 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                       >
                         {/* Corner Anchors */}
                         {/* Top Left */}
-                        <div className="absolute top-8 left-4 w-4 h-4 border-t-2 border-l-2 rounded-tl-lg transition-colors duration-300" 
-                             style={{ borderColor: statusColor }} />
+                        <div className="absolute top-8 left-4 w-4 h-4 border-t-2 border-l-2 rounded-tl-lg transition-colors duration-300"
+                          style={{ borderColor: statusColor }} />
                         {/* Top Right */}
-                        <div className="absolute top-8 right-4 w-4 h-4 border-t-2 border-r-2 rounded-tr-lg transition-colors duration-300" 
-                             style={{ borderColor: statusColor }} />
+                        <div className="absolute top-8 right-4 w-4 h-4 border-t-2 border-r-2 rounded-tr-lg transition-colors duration-300"
+                          style={{ borderColor: statusColor }} />
                         {/* Bottom Left */}
-                        <div className="absolute bottom-8 left-4 w-4 h-4 border-b-2 border-l-2 rounded-bl-lg transition-colors duration-300" 
-                             style={{ borderColor: statusColor }} />
+                        <div className="absolute bottom-8 left-4 w-4 h-4 border-b-2 border-l-2 rounded-bl-lg transition-colors duration-300"
+                          style={{ borderColor: statusColor }} />
                         {/* Bottom Right */}
-                        <div className="absolute bottom-8 right-4 w-4 h-4 border-b-2 border-r-2 rounded-br-lg transition-colors duration-300" 
-                             style={{ borderColor: statusColor }} />
+                        <div className="absolute bottom-8 right-4 w-4 h-4 border-b-2 border-r-2 rounded-br-lg transition-colors duration-300"
+                          style={{ borderColor: statusColor }} />
                       </div>
                     </div>
                   </>
@@ -616,6 +569,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
               <>
                 {uploadedImage ? (
                   <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       ref={uploadedImageRef}
                       src={uploadedImage}
@@ -701,22 +655,29 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                             setCameraReady(true);
                             setError(null);
                           }
-                        } catch (err: any) {
+                        } catch (err: unknown) {
                           console.error('Camera retry error:', err);
                           let errorMessage = 'Gagal mengakses kamera';
+                          
+                          interface ErrorWithDetails {
+                            message?: string;
+                            name?: string;
+                          }
+                          
+                          const errorObj = err as ErrorWithDetails;
 
-                          if (err.message === 'HTTPS_REQUIRED') {
+                          if (errorObj.message === 'HTTPS_REQUIRED') {
                             errorMessage = 'Akses kamera memerlukan HTTPS. Pastikan mengakses melalui HTTPS atau gunakan localhost. Jika mengakses via IP, gunakan https:// atau setup SSL certificate.';
-                          } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                          } else if (errorObj.name === 'NotAllowedError' || errorObj.name === 'PermissionDeniedError') {
                             errorMessage = 'Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser.';
-                          } else if (err.name === 'NotFoundError') {
+                          } else if (errorObj.name === 'NotFoundError') {
                             errorMessage = 'Kamera tidak ditemukan.';
-                          } else if (err.name === 'NotReadableError') {
+                          } else if (errorObj.name === 'NotReadableError') {
                             errorMessage = 'Kamera sedang digunakan aplikasi lain.';
-                          } else if (err.name === 'SecurityError') {
+                          } else if (errorObj.name === 'SecurityError') {
                             errorMessage = 'Akses kamera diblokir. Pastikan menggunakan HTTPS atau localhost.';
-                          } else if (err.message) {
-                            errorMessage = err.message;
+                          } else if (errorObj.message) {
+                            errorMessage = errorObj.message;
                           }
                           setError(errorMessage);
                         }
@@ -756,9 +717,8 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
         <button
           disabled={isAnalyzing || uploadLoading || (mode === 'camera' && !cameraReady) || (mode === 'upload' && !uploadedImage)}
           onClick={handleCapture}
-          className={`flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full border-4 border-white bg-[#3B82F6] text-white shadow-lg transition-all duration-300 active:bg-[#2563EB] hover:bg-[#2563EB] disabled:opacity-40 absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 touch-manipulation ${
-            guidanceStatus === 'aligned' ? 'scale-110 shadow-cyan-400/50 shadow-xl animate-pulse' : ''
-          }`}
+          className={`flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full border-4 border-white bg-[#3B82F6] text-white shadow-lg transition-all duration-300 active:bg-[#2563EB] hover:bg-[#2563EB] disabled:opacity-40 absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 touch-manipulation ${guidanceStatus === 'aligned' ? 'scale-110 shadow-cyan-400/50 shadow-xl animate-pulse' : ''
+            }`}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="12" cy="12" r="8" />

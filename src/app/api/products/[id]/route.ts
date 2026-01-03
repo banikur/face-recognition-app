@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const product = getProductById(parseInt(id));
+    const product = await getProductById(parseInt(id));
 
     if (!product) {
       return NextResponse.json(
@@ -34,7 +34,7 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    updateProduct(parseInt(id), body);
+    await updateProduct(parseInt(id), body);
 
     return NextResponse.json({ message: 'Product updated successfully' });
   } catch (error) {
@@ -52,7 +52,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    deleteProduct(parseInt(id));
+    await deleteProduct(parseInt(id));
 
     return NextResponse.json({ message: 'Product deleted successfully' });
   } catch (error) {

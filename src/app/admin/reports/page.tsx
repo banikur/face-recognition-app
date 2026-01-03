@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   getAnalysisLogsAction,
   getProductsAction,
@@ -10,7 +9,6 @@ import {
 import { AnalysisLog, Product, SkinType } from '@/data/models';
 
 export default function ReportsAdmin() {
-  const router = useRouter();
   const [logs, setLogs] = useState<AnalysisLog[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [skinTypes, setSkinTypes] = useState<SkinType[]>([]);
