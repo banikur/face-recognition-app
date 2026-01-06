@@ -2,46 +2,19 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  getAllAnalysisLogs,
-  getAllProducts,
-  getAllSkinTypes,
-  AnalysisLog,
-  Product,
-  SkinType
-} from '@/data/models';
 
 export default function ExportAdmin() {
   const router = useRouter();
   const [exportStatus, setExportStatus] = useState<string | null>(null);
 
-  const exportToCSV = () => {
+  const exportToCSV = async () => {
     setExportStatus('Exporting data to CSV...');
     
     try {
-      // Get all data
-      const logs = getAllAnalysisLogs();
-      const products = getAllProducts();
-      const skinTypes = getAllSkinTypes();
+      const response = await fetch('/api/reports/export-csv');
+      if (!response.ok) throw new Error('Export failed');
       
-      // Create a map for product names
-      const productMap = products.reduce((acc, product) => {
-        acc[product.id] = product.name;
-        return acc;
-      }, {} as Record<number, string>);
-      
-      // Create CSV content
-      const headers = ['ID,Date,Skin Condition,Recommended Product,User ID'];
-      const rows = logs.map(log => {
-        const date = new Date(log.created_at).toISOString().split('T')[0];
-        const productName = productMap[log.recommended_product_id] || 'Unknown';
-        return `${log.id},${date},${log.skin_condition_detected},"${productName}",${log.user_id || 'Guest'}`;
-      });
-      
-      const csvContent = [...headers, ...rows].join('\n');
-      
-      // Create download link
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
@@ -50,6 +23,7 @@ export default function ExportAdmin() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
       
       setExportStatus('CSV export completed successfully!');
     } catch (error) {
@@ -58,33 +32,14 @@ export default function ExportAdmin() {
     }
   };
 
-  const exportToJSON = () => {
+  const exportToJSON = async () => {
     setExportStatus('Exporting data to JSON...');
     
     try {
-      // Get all data
-      const logs = getAllAnalysisLogs();
-      const products = getAllProducts();
-      const skinTypes = getAllSkinTypes();
+      const response = await fetch('/api/reports/export-json');
+      if (!response.ok) throw new Error('Export failed');
       
-      // Create export data structure
-      const exportData = {
-        metadata: {
-          exportedAt: new Date().toISOString(),
-          totalLogs: logs.length,
-          totalProducts: products.length,
-          totalSkinTypes: skinTypes.length
-        },
-        analysisLogs: logs,
-        products: products,
-        skinTypes: skinTypes
-      };
-      
-      // Convert to JSON
-      const jsonContent = JSON.stringify(exportData, null, 2);
-      
-      // Create download link
-      const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
@@ -93,6 +48,7 @@ export default function ExportAdmin() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
       
       setExportStatus('JSON export completed successfully!');
     } catch (error) {

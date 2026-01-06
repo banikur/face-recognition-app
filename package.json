@@ -11,23 +11,27 @@
     "lint": "eslint",
     "init-db": "npx tsx data/init.ts",
     "inject-data": "npx tsx data/inject-data.ts",
-    "train-model": "npx tsx scripts/train-skin-model.ts"
+    "check-seed": "npx tsx data/check-seed.ts",
+    "create-admin": "npx tsx scripts/create-admin.ts",
+    "train-model": "npx tsx scripts/train-skin-model.ts",
+    "train-fast": "npx tsx scripts/train-fast.ts"
   },
   "dependencies": {
     "@mediapipe/face_detection": "^0.4.1646425229",
     "@mediapipe/face_mesh": "^0.4.1633559619",
+    "@supabase/supabase-js": "^2.89.0",
     "@tensorflow-models/face-landmarks-detection": "^1.0.2",
     "@tensorflow/tfjs": "^4.22.0",
     "@tensorflow/tfjs-backend-webgl": "^4.22.0",
-    "@types/better-sqlite3": "^7.6.13",
+    "@types/pg": "^8.16.0",
     "better-auth": "^1.4.4",
-    "better-sqlite3": "^12.2.0",
+    "dotenv": "^17.2.3",
     "next": "15.5.9",
     "pdfkit": "^0.15.0",
+    "pg": "^8.16.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "sharp": "^0.33.5",
-    "sqlite3": "^5.1.7",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

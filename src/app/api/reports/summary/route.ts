@@ -9,9 +9,9 @@ export async function GET(request: NextRequest) {
 
     let logs;
     if (startDate && endDate) {
-      logs = getAnalysisLogsByDateRange(startDate, endDate);
+      logs = await getAnalysisLogsByDateRange(startDate, endDate);
     } else {
-      logs = getAllAnalysisLogs();
+      logs = await getAllAnalysisLogs();
     }
 
     // Calculate statistics

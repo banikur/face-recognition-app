@@ -156,6 +156,7 @@ export default function BrandsAdmin() {
                                     </td>
                                     <td>
                                         {brand.logo_url ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
                                             <img src={brand.logo_url} alt={brand.name} className="w-8 h-8 rounded object-cover" />
                                         ) : (
                                             <span style={{ color: 'var(--text-muted)' }}>—</span>

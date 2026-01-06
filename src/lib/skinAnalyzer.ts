@@ -4,7 +4,7 @@
  * Categories: acne, blackheads, clear_skin, dark_spots, puffy_eyes, wrinkles
  */
 
-import { detectFaces, FaceDetectionResult, initializeFaceDetection } from './faceDetection';
+import { detectFaces, FaceDetectionResult, initializeFaceDetection, FaceBoundingBox } from './faceDetection';
 import { classifySkin, loadSkinModel, probabilitiesToScores, formatLabel, SkinScores } from './cnnSkinClassifier';
 
 export type { SkinScores } from './cnnSkinClassifier';
@@ -53,19 +53,20 @@ function captureFrame(video: HTMLVideoElement): { imageData: ImageData; base64: 
     };
 }
 
-async function detectFacePresenceWithCNN(video: HTMLVideoElement): Promise<{ detected: boolean; boundingBox?: any }> {
+async function detectFacePresenceWithCNN(video: HTMLVideoElement): Promise<{ detected: boolean; boundingBox?: FaceBoundingBox | null }> {
     try {
         const detectionResult: FaceDetectionResult = await detectFaces(video);
 
-        if (detectionResult.faceDetected && detectionResult.confidence > 0.2) {
+        if (detectionResult.faceDetected && detectionResult.confidence && detectionResult.confidence > 0.2) {
             console.log('✅ Face detected');
             return { detected: true, boundingBox: detectionResult.boundingBox };
         }
 
         console.log('❌ No face detected');
         return { detected: false };
-    } catch (error) {
-        console.error('Face detection error:', error);
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        console.error('Face detection error:', err.message || error);
         return { detected: false };
     }
 }

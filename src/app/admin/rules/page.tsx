@@ -2,17 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  getAllRules, 
-  createRule, 
-  updateRule, 
-  deleteRule,
-  getAllSkinTypes,
-  getAllProducts,
+import {
   Rule,
   SkinType,
   Product
 } from '@/data/models';
+import {
+  getRulesAction,
+  createRuleAction,
+  updateRuleAction,
+  deleteRuleAction,
+  getSkinTypesAction,
+  getProductsAction
+} from './actions';
 
 export default function RulesAdmin() {
   const router = useRouter();
@@ -32,11 +34,13 @@ export default function RulesAdmin() {
     fetchData();
   }, []);
 
-  const fetchData = () => {
+  const fetchData = async () => {
     try {
-      const rulesData = getAllRules();
-      const skinTypesData = getAllSkinTypes();
-      const productsData = getAllProducts();
+      const [rulesData, skinTypesData, productsData] = await Promise.all([
+        getRulesAction(),
+        getSkinTypesAction(),
+        getProductsAction()
+      ]);
       setRules(rulesData);
       setSkinTypes(skinTypesData);
       setProducts(productsData);
@@ -47,7 +51,7 @@ export default function RulesAdmin() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
@@ -55,16 +59,16 @@ export default function RulesAdmin() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       if (editingRule) {
-        updateRule(editingRule.id, formData);
+        await updateRuleAction(editingRule.id, formData);
       } else {
-        createRule(formData);
+        await createRuleAction(formData);
       }
-      
+
       // Reset form and refresh data
       setFormData({
         skin_type_id: 0,
@@ -89,10 +93,10 @@ export default function RulesAdmin() {
     setShowForm(true);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm('Are you sure you want to delete this rule?')) {
       try {
-        deleteRule(id);
+        await deleteRuleAction(id);
         fetchData();
       } catch (error) {
         console.error('Error deleting rule:', error);
@@ -142,7 +146,7 @@ export default function RulesAdmin() {
               <h3 className="text-lg font-bold text-gray-900 mb-4">
                 {editingRule ? 'Edit Rule' : 'Add New Rule'}
               </h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div>
                   <label htmlFor="skin_type_id" className="block text-sm font-medium text-gray-700 mb-1">
@@ -164,7 +168,7 @@ export default function RulesAdmin() {
                     ))}
                   </select>
                 </div>
-                
+
                 <div>
                   <label htmlFor="product_id" className="block text-sm font-medium text-gray-700 mb-1">
                     Product
@@ -185,7 +189,7 @@ export default function RulesAdmin() {
                     ))}
                   </select>
                 </div>
-                
+
                 <div>
                   <label htmlFor="confidence_score" className="block text-sm font-medium text-gray-700 mb-1">
                     Confidence Score (0.0 - 1.0)
@@ -204,7 +208,7 @@ export default function RulesAdmin() {
                   />
                 </div>
               </div>
-              
+
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"

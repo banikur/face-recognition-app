@@ -51,7 +51,7 @@ import { revalidatePath } from 'next/cache';
 
 export async function getBrandsAction(): Promise<Brand[]> {
     try {
-        return getAllBrands();
+        return await getAllBrands();
     } catch (error) {
         console.error('Error fetching brands:', error);
         return [];
@@ -60,7 +60,7 @@ export async function getBrandsAction(): Promise<Brand[]> {
 
 export async function createBrandAction(data: { name: string; logo_url?: string }) {
     try {
-        const result = createBrand({ name: data.name, logo_url: data.logo_url || null });
+        const result = await createBrand({ name: data.name, logo_url: data.logo_url || null });
         revalidatePath('/admin/brands');
         return { success: true, id: result };
     } catch (error) {
@@ -71,7 +71,7 @@ export async function createBrandAction(data: { name: string; logo_url?: string 
 
 export async function updateBrandAction(id: number, data: { name?: string; logo_url?: string }) {
     try {
-        updateBrand(id, data);
+        await updateBrand(id, data);
         revalidatePath('/admin/brands');
         revalidatePath('/admin/products');
         return { success: true };
@@ -83,7 +83,7 @@ export async function updateBrandAction(id: number, data: { name?: string; logo_
 
 export async function deleteBrandAction(id: number) {
     try {
-        deleteBrand(id);
+        await deleteBrand(id);
         revalidatePath('/admin/brands');
         revalidatePath('/admin/products');
         return { success: true };
@@ -99,7 +99,7 @@ export async function deleteBrandAction(id: number) {
 
 export async function getCategoriesAction(): Promise<ProductCategory[]> {
     try {
-        return getAllCategories();
+        return await getAllCategories();
     } catch (error) {
         console.error('Error fetching categories:', error);
         return [];
@@ -108,7 +108,7 @@ export async function getCategoriesAction(): Promise<ProductCategory[]> {
 
 export async function createCategoryAction(data: { name: string; description?: string }) {
     try {
-        const result = createCategory({ name: data.name, description: data.description || null });
+        const result = await createCategory({ name: data.name, description: data.description || null });
         revalidatePath('/admin/categories');
         return { success: true, id: result };
     } catch (error) {
@@ -119,7 +119,7 @@ export async function createCategoryAction(data: { name: string; description?: s
 
 export async function updateCategoryAction(id: number, data: { name?: string; description?: string }) {
     try {
-        updateCategory(id, data);
+        await updateCategory(id, data);
         revalidatePath('/admin/categories');
         revalidatePath('/admin/products');
         return { success: true };
@@ -131,7 +131,7 @@ export async function updateCategoryAction(id: number, data: { name?: string; de
 
 export async function deleteCategoryAction(id: number) {
     try {
-        deleteCategory(id);
+        await deleteCategory(id);
         revalidatePath('/admin/categories');
         revalidatePath('/admin/products');
         return { success: true };
@@ -147,7 +147,7 @@ export async function deleteCategoryAction(id: number) {
 
 export async function getIngredientsAction(): Promise<Ingredient[]> {
     try {
-        return getAllIngredients();
+        return await getAllIngredients();
     } catch (error) {
         console.error('Error fetching ingredients:', error);
         return [];
@@ -156,7 +156,7 @@ export async function getIngredientsAction(): Promise<Ingredient[]> {
 
 export async function createIngredientAction(data: Omit<Ingredient, 'id' | 'created_at'>) {
     try {
-        createIngredient(data);
+        await createIngredient(data);
         revalidatePath('/admin/ingredients');
         return { success: true };
     } catch (error) {
@@ -167,7 +167,7 @@ export async function createIngredientAction(data: Omit<Ingredient, 'id' | 'crea
 
 export async function updateIngredientAction(id: number, data: Partial<Omit<Ingredient, 'id' | 'created_at'>>) {
     try {
-        updateIngredient(id, data);
+        await updateIngredient(id, data);
         revalidatePath('/admin/ingredients');
         revalidatePath('/admin/products');
         return { success: true };
@@ -179,7 +179,7 @@ export async function updateIngredientAction(id: number, data: Partial<Omit<Ingr
 
 export async function deleteIngredientAction(id: number) {
     try {
-        deleteIngredient(id);
+        await deleteIngredient(id);
         revalidatePath('/admin/ingredients');
         revalidatePath('/admin/products');
         return { success: true };
@@ -195,7 +195,7 @@ export async function deleteIngredientAction(id: number) {
 
 export async function getRecommendationsAction(): Promise<Recommendation[]> {
     try {
-        return getAllRecommendations();
+        return await getAllRecommendations();
     } catch (error) {
         console.error('Error fetching recommendations:', error);
         return [];
@@ -204,7 +204,7 @@ export async function getRecommendationsAction(): Promise<Recommendation[]> {
 
 export async function createRecommendationAction(data: Omit<Recommendation, 'id' | 'created_at'>) {
     try {
-        const result = createRecommendation(data);
+        const result = await createRecommendation(data);
         revalidatePath('/admin/recommendations');
         return { success: true, id: result };
     } catch (error) {
@@ -215,7 +215,7 @@ export async function createRecommendationAction(data: Omit<Recommendation, 'id'
 
 export async function updateRecommendationAction(id: number, data: Partial<Omit<Recommendation, 'id' | 'created_at'>>) {
     try {
-        updateRecommendation(id, data);
+        await updateRecommendation(id, data);
         revalidatePath('/admin/recommendations');
         return { success: true };
     } catch (error) {
@@ -226,7 +226,7 @@ export async function updateRecommendationAction(id: number, data: Partial<Omit<
 
 export async function deleteRecommendationAction(id: number) {
     try {
-        deleteRecommendation(id);
+        await deleteRecommendation(id);
         revalidatePath('/admin/recommendations');
         return { success: true };
     } catch (error) {
@@ -241,7 +241,7 @@ export async function deleteRecommendationAction(id: number) {
 
 export async function getProductsAction(): Promise<Product[]> {
     try {
-        return getAllProducts();
+        return await getAllProducts();
     } catch (error) {
         console.error('Error fetching products:', error);
         return [];
@@ -250,7 +250,7 @@ export async function getProductsAction(): Promise<Product[]> {
 
 export async function getProductIngredientsAction(productId: number): Promise<Ingredient[]> {
     try {
-        return getProductIngredients(productId);
+        return await getProductIngredients(productId);
     } catch (error) {
         console.error('Error fetching product ingredients:', error);
         return [];
@@ -266,7 +266,7 @@ export async function createProductAction(data: {
     ingredient_ids?: number[];
 }) {
     try {
-        const result = createProduct(data);
+        const result = await createProduct(data);
         revalidatePath('/admin/products');
         return { success: true, id: result };
     } catch (error) {
@@ -284,7 +284,7 @@ export async function updateProductAction(id: number, data: {
     ingredient_ids?: number[];
 }) {
     try {
-        updateProduct(id, data);
+        await updateProduct(id, data);
         revalidatePath('/admin/products');
         return { success: true };
     } catch (error) {
@@ -295,7 +295,7 @@ export async function updateProductAction(id: number, data: {
 
 export async function deleteProductAction(id: number) {
     try {
-        deleteProduct(id);
+        await deleteProduct(id);
         revalidatePath('/admin/products');
         return { success: true };
     } catch (error) {
@@ -310,7 +310,7 @@ export async function deleteProductAction(id: number) {
 
 export async function getAnalysisLogsAction(): Promise<AnalysisLog[]> {
     try {
-        return getAllAnalysisLogs();
+        return await getAllAnalysisLogs();
     } catch (error) {
         console.error('Error fetching analysis logs:', error);
         return [];
@@ -319,8 +319,8 @@ export async function getAnalysisLogsAction(): Promise<AnalysisLog[]> {
 
 export async function getAnalysisStatsAction() {
     try {
-        const logs = getAllAnalysisLogs();
-        const products = getAllProducts();
+        const logs = await getAllAnalysisLogs();
+        const products = await getAllProducts();
 
         const totalAnalysis = logs.length;
 
@@ -355,7 +355,7 @@ export async function getAnalysisStatsAction() {
 
 export async function getSkinTypesAction(): Promise<SkinType[]> {
     try {
-        return getAllSkinTypes();
+        return await getAllSkinTypes();
     } catch (error) {
         console.error('Error fetching skin types:', error);
         return [];
@@ -364,7 +364,7 @@ export async function getSkinTypesAction(): Promise<SkinType[]> {
 
 export async function createSkinTypeAction(data: Omit<SkinType, 'id' | 'created_at'>) {
     try {
-        const result = createSkinType(data);
+        const result = await createSkinType(data);
         revalidatePath('/admin/recommendations');
         return { success: true, id: result };
     } catch (error) {
@@ -375,7 +375,7 @@ export async function createSkinTypeAction(data: Omit<SkinType, 'id' | 'created_
 
 export async function updateSkinTypeAction(id: number, data: Partial<Omit<SkinType, 'id' | 'created_at'>>) {
     try {
-        updateSkinType(id, data);
+        await updateSkinType(id, data);
         revalidatePath('/admin/recommendations');
         return { success: true };
     } catch (error) {
@@ -386,7 +386,7 @@ export async function updateSkinTypeAction(id: number, data: Partial<Omit<SkinTy
 
 export async function deleteSkinTypeAction(id: number) {
     try {
-        deleteSkinType(id);
+        await deleteSkinType(id);
         revalidatePath('/admin/recommendations');
         return { success: true };
     } catch (error) {

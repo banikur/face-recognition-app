@@ -15,11 +15,11 @@ export async function GET(request: NextRequest) {
     let logs;
     
     if (startDate && endDate) {
-      logs = getAnalysisLogsByDateRange(startDate, endDate);
+      logs = await getAnalysisLogsByDateRange(startDate, endDate);
     } else if (condition) {
-      logs = getAnalysisLogsByCondition(condition);
+      logs = await getAnalysisLogsByCondition(condition);
     } else {
-      logs = getAllAnalysisLogs();
+      logs = await getAllAnalysisLogs();
     }
 
     return NextResponse.json(logs);
