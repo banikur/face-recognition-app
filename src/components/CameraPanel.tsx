@@ -33,16 +33,16 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       return navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
     }
-    
+
     // Type-safe fallback for legacy browsers
     interface NavigatorWithGetUserMedia extends Navigator {
       getUserMedia?: (constraints: MediaStreamConstraints, success: (stream: MediaStream) => void, error: (error: Error) => void) => void;
       webkitGetUserMedia?: (constraints: MediaStreamConstraints, success: (stream: MediaStream) => void, error: (error: Error) => void) => void;
       mozGetUserMedia?: (constraints: MediaStreamConstraints, success: (stream: MediaStream) => void, error: (error: Error) => void) => void;
     }
-    
+
     const nav = navigator as NavigatorWithGetUserMedia;
-    
+
     if (nav.getUserMedia) {
       return (constraints: MediaStreamConstraints) => {
         return new Promise((resolve, reject) => {
@@ -524,8 +524,8 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                         background: 'rgba(0,0,0,0.4)',
                         backdropFilter: 'blur(8px)',
                         WebkitBackdropFilter: 'blur(8px)',
-                        maskImage: 'radial-gradient(ellipse 36% 43% at 50% 45%, transparent 35%, black 45%)',
-                        WebkitMaskImage: 'radial-gradient(ellipse 36% 43% at 50% 45%, transparent 35%, black 45%)'
+                        maskImage: 'radial-gradient(ellipse 36% 43% at 50% 45%, transparent 95%, black 100%)',
+                        WebkitMaskImage: 'radial-gradient(ellipse 36% 43% at 50% 45%, transparent 95%, black 100%)'
                       }}
                     />
 
@@ -658,12 +658,12 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                         } catch (err: unknown) {
                           console.error('Camera retry error:', err);
                           let errorMessage = 'Gagal mengakses kamera';
-                          
+
                           interface ErrorWithDetails {
                             message?: string;
                             name?: string;
                           }
-                          
+
                           const errorObj = err as ErrorWithDetails;
 
                           if (errorObj.message === 'HTTPS_REQUIRED') {
