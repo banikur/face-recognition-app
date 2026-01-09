@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { analyzeSkin, AnalysisResult } from "@/lib/skinAnalyzer";
 import { detectFaces } from "@/lib/faceDetection";
+import Swal from 'sweetalert2';
 
 interface Props {
   onCapture: (result: AnalysisResult) => void;
@@ -72,6 +73,32 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
         // This ensures the face detection model is pre-loaded
         // The actual initialization will happen when needed
         console.log('Face detection model is ready for use');
+
+        Swal.fire({
+          title: 'Privacy & Data Usage',
+          html: `
+                  <div style="text-align:left; line-height:1.6; font-size:14px;">
+                    <p>
+                      Website ini dibuat khusus untuk keperluan <b>demo Tugas Akhir</b>.
+                    </p>
+                    <p>
+                      Sistem <b>tidak menyimpan foto, gambar wajah, atau data biometrik</b> pengguna.
+                      Seluruh proses pengolahan wajah dilakukan <b>secara langsung di browser</b> (client-side).
+                    </p>
+                    <p style="color:#6B7280; font-size:12px;">
+                      Dengan melanjutkan, Anda memahami bahwa aplikasi ini hanya digunakan untuk keperluan akademik dan demonstrasi teknologi.
+                    </p>
+                  </div>
+                `,
+          icon: 'info',
+          confirmButtonText: 'Saya Mengerti',
+          confirmButtonColor: '#3B82F6',
+          width: 420,
+          padding: '1.5rem',
+          backdrop: true,
+          heightAuto: false
+        });
+
       } catch (error) {
         console.error('Error initializing face detection:', error);
       }
@@ -514,46 +541,28 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                   muted
                   autoPlay
                 />
-                {/* Oval face positioning guide - dynamic overlay */}
                 {cameraReady && !isAnalyzing && (
                   <>
-                    {/* 1. Outside Blur & Dimming (The "Mask") */}
-                    <div
-                      className="absolute inset-0 z-10 pointer-events-none transition-all duration-500"
-                      style={{
-                        background: 'rgba(0,0,0,0.4)',
-                        backdropFilter: 'blur(8px)',
-                        WebkitBackdropFilter: 'blur(8px)',
-                        maskImage: 'radial-gradient(ellipse 36% 43% at 50% 45%, transparent 95%, black 100%)',
-                        WebkitMaskImage: 'radial-gradient(ellipse 36% 43% at 50% 45%, transparent 95%, black 100%)'
-                      }}
-                    />
-
-                    {/* 2. The Oval Guide (Visuals) */}
+                    {/* Corner Anchors Guide (Visuals) */}
                     <div
                       className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center"
                       style={{ paddingBottom: '10%' }}
                     >
                       <div
-                        className="relative w-[70%] h-[84%] rounded-[50%] transition-all duration-300 ease-out"
-                        style={{
-                          animation: 'breathe 2.5s ease-in-out infinite',
-                          boxShadow: `0 0 30px ${statusColor}${Math.floor(glowOpacity * 100)}, inset 0 0 20px ${statusColor}20`,
-                          border: `2px solid ${statusColor}40`
-                        }}
+                        className="relative w-[70%] h-[84%]"
                       >
                         {/* Corner Anchors */}
                         {/* Top Left */}
-                        <div className="absolute top-8 left-4 w-4 h-4 border-t-2 border-l-2 rounded-tl-lg transition-colors duration-300"
+                        <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 rounded-tl-lg transition-colors duration-300"
                           style={{ borderColor: statusColor }} />
                         {/* Top Right */}
-                        <div className="absolute top-8 right-4 w-4 h-4 border-t-2 border-r-2 rounded-tr-lg transition-colors duration-300"
+                        <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 rounded-tr-lg transition-colors duration-300"
                           style={{ borderColor: statusColor }} />
                         {/* Bottom Left */}
-                        <div className="absolute bottom-8 left-4 w-4 h-4 border-b-2 border-l-2 rounded-bl-lg transition-colors duration-300"
+                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 rounded-bl-lg transition-colors duration-300"
                           style={{ borderColor: statusColor }} />
                         {/* Bottom Right */}
-                        <div className="absolute bottom-8 right-4 w-4 h-4 border-b-2 border-r-2 rounded-br-lg transition-colors duration-300"
+                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 rounded-br-lg transition-colors duration-300"
                           style={{ borderColor: statusColor }} />
                       </div>
                     </div>
