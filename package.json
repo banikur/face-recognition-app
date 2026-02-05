@@ -24,7 +24,7 @@
     "@tensorflow/tfjs": "^4.22.0",
     "@tensorflow/tfjs-backend-webgl": "^4.22.0",
     "@types/pg": "^8.16.0",
-    "better-auth": "^1.4.4",
+    "better-auth": "^1.4.13",
     "dotenv": "^17.2.3",
     "next": "15.5.9",
     "pdfkit": "^0.15.0",
