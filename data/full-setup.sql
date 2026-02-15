@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS rules (
   skin_type_id BIGINT REFERENCES recommendations(id),
   product_id BIGINT REFERENCES products(id),
   confidence_score REAL,
+  explanation TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -182,18 +183,32 @@ FROM (
 ) agg
 WHERE p.id = agg.product_id;
 
+-- Auto-populate rules: setiap produk diklasifikasikan ke kondisi berdasarkan weight tertingginya
 INSERT INTO rules (skin_type_id, product_id, confidence_score)
-SELECT r.id, p.id, 0.95
-FROM recommendations r
-JOIN products p ON (
-  (r.condition = 'acne' AND p.name = 'Anti-Acne Face Wash') OR
-  (r.condition = 'blackheads' AND p.name = 'Oil Control Face Wash') OR
-  (r.condition = 'clear_skin' AND p.name = 'Balancing Face Wash') OR
-  (r.condition = 'dark_spots' AND p.name = 'Brightening Cleanser') OR
-  (r.condition = 'puffy_eyes' AND p.name = 'Hydrating Face Wash') OR
-  (r.condition = 'wrinkles' AND p.name = 'Anti-Aging Face Wash')
+SELECT r.id, p.id,
+       GREATEST(
+         p.w_acne,
+         p.w_blackheads,
+         p.w_clear_skin,
+         p.w_dark_spots,
+         p.w_puffy_eyes,
+         p.w_wrinkles
+       )
+FROM products p
+JOIN recommendations r
+ON r.condition = (
+  CASE
+    WHEN p.w_acne >= ALL(ARRAY[p.w_blackheads,p.w_clear_skin,p.w_dark_spots,p.w_puffy_eyes,p.w_wrinkles]) THEN 'acne'
+    WHEN p.w_blackheads >= ALL(ARRAY[p.w_acne,p.w_clear_skin,p.w_dark_spots,p.w_puffy_eyes,p.w_wrinkles]) THEN 'blackheads'
+    WHEN p.w_dark_spots >= ALL(ARRAY[p.w_acne,p.w_blackheads,p.w_clear_skin,p.w_puffy_eyes,p.w_wrinkles]) THEN 'dark_spots'
+    WHEN p.w_puffy_eyes >= ALL(ARRAY[p.w_acne,p.w_blackheads,p.w_clear_skin,p.w_dark_spots,p.w_wrinkles]) THEN 'puffy_eyes'
+    WHEN p.w_wrinkles >= ALL(ARRAY[p.w_acne,p.w_blackheads,p.w_clear_skin,p.w_dark_spots,p.w_puffy_eyes]) THEN 'wrinkles'
+    ELSE 'clear_skin'
+  END
 )
-WHERE NOT EXISTS (SELECT 1 FROM rules LIMIT 1);
+WHERE NOT EXISTS (SELECT 1 FROM rules LIMIT 1)
+ON CONFLICT DO NOTHING;
+
 
 INSERT INTO analysis_logs (user_name, user_email, user_phone, user_age, acne_score, blackheads_score, clear_skin_score, dark_spots_score, puffy_eyes_score, wrinkles_score, dominant_condition, recommended_product_ids)
 SELECT * FROM (VALUES
@@ -206,3 +221,16 @@ WHERE NOT EXISTS (SELECT 1 FROM analysis_logs LIMIT 1);
 INSERT INTO admin_users (email, password_hash)
 SELECT 'admin@skinlab.com', '$2b$10$JunYk0VKbLJ0ftAcqcVxsO3YdGh7vWFOcu9LCyVsyqshHRBFDy.Wq'
 WHERE NOT EXISTS (SELECT 1 FROM admin_users WHERE email = 'admin@skinlab.com');
+
+-- ==================== MIGRASI (untuk database existing) ====================
+
+-- Tambah kolom explanation ke tabel rules jika belum ada
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'rules' AND column_name = 'explanation'
+  ) THEN
+    ALTER TABLE rules ADD COLUMN explanation TEXT;
+  END IF;
+END $$;

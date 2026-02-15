@@ -93,6 +93,7 @@ export interface Rule {
   skin_type_id: number;
   product_id: number;
   confidence_score: number;
+  explanation: string | null;
 }
 
 // ============================================
@@ -839,7 +840,8 @@ export const createRule = async (rule: Omit<Rule, 'id'>): Promise<number> => {
     .insert({
       skin_type_id: rule.skin_type_id,
       product_id: rule.product_id,
-      confidence_score: rule.confidence_score
+      confidence_score: rule.confidence_score,
+      explanation: rule.explanation || null
     })
     .select('id')
     .single();
@@ -856,6 +858,7 @@ export const updateRule = async (id: number, rule: Partial<Rule>): Promise<void>
   if (rule.skin_type_id !== undefined) updateData.skin_type_id = rule.skin_type_id;
   if (rule.product_id !== undefined) updateData.product_id = rule.product_id;
   if (rule.confidence_score !== undefined) updateData.confidence_score = rule.confidence_score;
+  if (rule.explanation !== undefined) updateData.explanation = rule.explanation;
 
   if (Object.keys(updateData).length === 0) {
     return;
@@ -880,4 +883,62 @@ export const deleteRule = async (id: number): Promise<void> => {
   if (error) {
     throw new Error(`Failed to delete rule: ${error.message}`);
   }
+};
+
+/**
+ * Get product recommendations based on rules table for a given condition
+ * @param condition - The dominant skin condition (e.g., 'acne', 'wrinkles')
+ * @param limit - Maximum number of products to return (default: 3)
+ */
+export const getProductsByRulesForCondition = async (
+  condition: string,
+  limit: number = 3
+): Promise<(Product & { confidence_score: number; explanation: string | null })[]> => {
+  // First, get the recommendation ID for this condition
+  const { data: recData, error: recError } = await supabase
+    .from('recommendations')
+    .select('id')
+    .eq('condition', condition)
+    .single();
+
+  if (recError || !recData) {
+    console.error('Error fetching recommendation for condition:', condition, recError);
+    return [];
+  }
+
+  const skinTypeId = recData.id;
+
+  // Get products from rules table, ordered by confidence_score
+  const { data, error } = await supabase
+    .from('rules')
+    .select(`
+      confidence_score,
+      explanation,
+      products:product_id(
+        *,
+        brands:brand_id(name),
+        product_categories:category_id(name)
+      )
+    `)
+    .eq('skin_type_id', skinTypeId)
+    .order('confidence_score', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Error fetching products by rules:', error);
+    return [];
+  }
+
+  // Map the joined data
+  return (data || []).flatMap((r: any) => {
+    if (!r.products) return [];
+    const product = r.products;
+    return [{
+      ...product,
+      brand_name: product.brands?.name,
+      category_name: product.product_categories?.name,
+      confidence_score: r.confidence_score,
+      explanation: r.explanation
+    }];
+  }) as (Product & { confidence_score: number; explanation: string | null })[];
 };
