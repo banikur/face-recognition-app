@@ -9,10 +9,12 @@ interface Product {
     description: string;
     ingredients: string;
     image_url: string;
-    w_oily: number;
-    w_dry: number;
-    w_normal: number;
     w_acne: number;
+    w_blackheads: number;
+    w_clear_skin: number;
+    w_dark_spots: number;
+    w_puffy_eyes: number;
+    w_wrinkles: number;
 }
 
 export default function ProductsPage() {
@@ -42,12 +44,13 @@ export default function ProductsPage() {
             return (p[key] as number) > 0.3;
         });
 
+    const CNN_LABELS = ['acne', 'blackheads', 'clear_skin', 'dark_spots', 'puffy_eyes', 'wrinkles'] as const;
     const skinTags = (product: Product) => {
         const tags: string[] = [];
-        if (product.w_oily > 0.3) tags.push('Oily');
-        if (product.w_dry > 0.3) tags.push('Dry');
-        if (product.w_normal > 0.3) tags.push('Normal');
-        if (product.w_acne > 0.3) tags.push('Acne');
+        for (const label of CNN_LABELS) {
+            const key = `w_${label}` as keyof Product;
+            if ((product[key] as number) > 0.3) tags.push(label.replace(/_/g, ' '));
+        }
         return tags;
     };
 
@@ -65,7 +68,7 @@ export default function ProductsPage() {
             <div className="max-w-6xl mx-auto px-6 py-8">
                 {/* Filter Tabs */}
                 <div className="flex gap-2 mb-6 flex-wrap">
-                    {['all', 'oily', 'dry', 'normal', 'acne'].map(f => (
+                    {['all', 'acne', 'blackheads', 'clear_skin', 'dark_spots', 'puffy_eyes', 'wrinkles'].map(f => (
                         <button
                             key={f}
                             onClick={() => setFilter(f)}
@@ -74,7 +77,7 @@ export default function ProductsPage() {
                                     : 'bg-white border border-[#E5E7EB] text-[#111]/70 hover:border-[#3B82F6]'
                                 }`}
                         >
-                            {f === 'all' ? 'Semua' : f.charAt(0).toUpperCase() + f.slice(1)}
+                            {f === 'all' ? 'Semua' : f.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                         </button>
                     ))}
                 </div>

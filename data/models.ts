@@ -22,10 +22,12 @@ export interface Ingredient {
   id: number;
   name: string;
   effect: string | null;
-  w_oily: number;
-  w_dry: number;
-  w_normal: number;
   w_acne: number;
+  w_blackheads: number;
+  w_clear_skin: number;
+  w_dark_spots: number;
+  w_puffy_eyes: number;
+  w_wrinkles: number;
   created_at: string;
 }
 
@@ -45,12 +47,13 @@ export interface Product {
   category_id: number | null;
   description: string | null;
   image_url: string | null;
-  w_oily: number;
-  w_dry: number;
-  w_normal: number;
   w_acne: number;
+  w_blackheads: number;
+  w_clear_skin: number;
+  w_dark_spots: number;
+  w_puffy_eyes: number;
+  w_wrinkles: number;
   created_at: string;
-  // Joined fields
   brand_name?: string;
   category_name?: string;
 }
@@ -66,10 +69,12 @@ export interface AnalysisLog {
   user_email: string | null;
   user_phone: string | null;
   user_age: number;
-  oily_score: number;
-  dry_score: number;
-  normal_score: number;
   acne_score: number;
+  blackheads_score: number;
+  clear_skin_score: number;
+  dark_spots_score: number;
+  puffy_eyes_score: number;
+  wrinkles_score: number;
   dominant_condition: string;
   recommended_product_ids: string;
   created_at: string;
@@ -286,10 +291,12 @@ export const createIngredient = async (ingredient: Omit<Ingredient, 'id' | 'crea
     .insert({
       name: ingredient.name,
       effect: ingredient.effect || null,
-      w_oily: ingredient.w_oily || 0,
-      w_dry: ingredient.w_dry || 0,
-      w_normal: ingredient.w_normal || 0,
-      w_acne: ingredient.w_acne || 0
+      w_acne: ingredient.w_acne ?? 0,
+      w_blackheads: ingredient.w_blackheads ?? 0,
+      w_clear_skin: ingredient.w_clear_skin ?? 0,
+      w_dark_spots: ingredient.w_dark_spots ?? 0,
+      w_puffy_eyes: ingredient.w_puffy_eyes ?? 0,
+      w_wrinkles: ingredient.w_wrinkles ?? 0
     })
     .select('id')
     .single();
@@ -305,10 +312,8 @@ export const updateIngredient = async (id: number, ingredient: Partial<Omit<Ingr
   const updateData: Partial<Ingredient> = {};
   if (ingredient.name !== undefined) updateData.name = ingredient.name;
   if (ingredient.effect !== undefined) updateData.effect = ingredient.effect;
-  if (ingredient.w_oily !== undefined) updateData.w_oily = ingredient.w_oily;
-  if (ingredient.w_dry !== undefined) updateData.w_dry = ingredient.w_dry;
-  if (ingredient.w_normal !== undefined) updateData.w_normal = ingredient.w_normal;
-  if (ingredient.w_acne !== undefined) updateData.w_acne = ingredient.w_acne;
+  const wKeys = ['w_acne', 'w_blackheads', 'w_clear_skin', 'w_dark_spots', 'w_puffy_eyes', 'w_wrinkles'] as const;
+  wKeys.forEach(k => { if (ingredient[k] !== undefined) updateData[k] = ingredient[k]; });
 
   if (Object.keys(updateData).length === 0) {
     return;
@@ -528,10 +533,7 @@ export const createProduct = async (product: {
       category_id: product.category_id || null,
       description: product.description || null,
       image_url: product.image_url || null,
-      w_oily: 0,
-      w_dry: 0,
-      w_normal: 0,
-      w_acne: 0
+      w_acne: 0, w_blackheads: 0, w_clear_skin: 0, w_dark_spots: 0, w_puffy_eyes: 0, w_wrinkles: 0
     })
     .select('id')
     .single();
@@ -603,28 +605,28 @@ export const setProductIngredients = async (productId: number, ingredientIds: nu
     }
   }
 
-  // Calculate and update product weights
-  let totalOily = 0, totalDry = 0, totalNormal = 0, totalAcne = 0;
-
+  const totals = { w_acne: 0, w_blackheads: 0, w_clear_skin: 0, w_dark_spots: 0, w_puffy_eyes: 0, w_wrinkles: 0 };
   for (const ingredientId of ingredientIds) {
-    const ingredient = await getIngredientById(ingredientId);
-    if (ingredient) {
-      totalOily += ingredient.w_oily;
-      totalDry += ingredient.w_dry;
-      totalNormal += ingredient.w_normal;
-      totalAcne += ingredient.w_acne;
+    const ing = await getIngredientById(ingredientId);
+    if (ing) {
+      totals.w_acne += ing.w_acne;
+      totals.w_blackheads += ing.w_blackheads;
+      totals.w_clear_skin += ing.w_clear_skin;
+      totals.w_dark_spots += ing.w_dark_spots;
+      totals.w_puffy_eyes += ing.w_puffy_eyes;
+      totals.w_wrinkles += ing.w_wrinkles;
     }
   }
-
-  // Normalize and update product weights
-  const max = Math.max(totalOily, totalDry, totalNormal, totalAcne, 1);
+  const max = Math.max(...Object.values(totals), 1);
   const { error: updateError } = await supabase
     .from('products')
     .update({
-      w_oily: Math.min(totalOily / max, 1),
-      w_dry: Math.min(totalDry / max, 1),
-      w_normal: Math.min(totalNormal / max, 1),
-      w_acne: Math.min(totalAcne / max, 1)
+      w_acne: Math.min(totals.w_acne / max, 1),
+      w_blackheads: Math.min(totals.w_blackheads / max, 1),
+      w_clear_skin: Math.min(totals.w_clear_skin / max, 1),
+      w_dark_spots: Math.min(totals.w_dark_spots / max, 1),
+      w_puffy_eyes: Math.min(totals.w_puffy_eyes / max, 1),
+      w_wrinkles: Math.min(totals.w_wrinkles / max, 1)
     })
     .eq('id', productId);
 
@@ -715,10 +717,12 @@ export const createAnalysisLog = async (log: Omit<AnalysisLog, 'id' | 'created_a
       user_email: log.user_email,
       user_phone: log.user_phone,
       user_age: log.user_age,
-      oily_score: log.oily_score,
-      dry_score: log.dry_score,
-      normal_score: log.normal_score,
       acne_score: log.acne_score,
+      blackheads_score: log.blackheads_score,
+      clear_skin_score: log.clear_skin_score,
+      dark_spots_score: log.dark_spots_score,
+      puffy_eyes_score: log.puffy_eyes_score,
+      wrinkles_score: log.wrinkles_score,
       dominant_condition: log.dominant_condition,
       recommended_product_ids: log.recommended_product_ids
     })
@@ -788,25 +792,27 @@ export const deleteSkinType = async (id: number): Promise<void> => {
 // WEIGHT CALCULATION (from DB ingredients)
 // ============================================
 
-export const calculateWeights = async (ingredientIds: number[]): Promise<{ w_oily: number; w_dry: number; w_normal: number; w_acne: number }> => {
-  let oily = 0, dry = 0, normal = 0, acne = 0;
-
+export const calculateWeights = async (ingredientIds: number[]): Promise<Record<string, number>> => {
+  const totals = { w_acne: 0, w_blackheads: 0, w_clear_skin: 0, w_dark_spots: 0, w_puffy_eyes: 0, w_wrinkles: 0 };
   for (const id of ingredientIds) {
-    const ingredient = await getIngredientById(id);
-    if (ingredient) {
-      oily += ingredient.w_oily;
-      dry += ingredient.w_dry;
-      normal += ingredient.w_normal;
-      acne += ingredient.w_acne;
+    const ing = await getIngredientById(id);
+    if (ing) {
+      totals.w_acne += ing.w_acne;
+      totals.w_blackheads += ing.w_blackheads;
+      totals.w_clear_skin += ing.w_clear_skin;
+      totals.w_dark_spots += ing.w_dark_spots;
+      totals.w_puffy_eyes += ing.w_puffy_eyes;
+      totals.w_wrinkles += ing.w_wrinkles;
     }
   }
-
-  const max = Math.max(oily, dry, normal, acne, 1);
+  const max = Math.max(...Object.values(totals), 1);
   return {
-    w_oily: Math.min(oily / max, 1),
-    w_dry: Math.min(dry / max, 1),
-    w_normal: Math.min(normal / max, 1),
-    w_acne: Math.min(acne / max, 1),
+    w_acne: Math.min(totals.w_acne / max, 1),
+    w_blackheads: Math.min(totals.w_blackheads / max, 1),
+    w_clear_skin: Math.min(totals.w_clear_skin / max, 1),
+    w_dark_spots: Math.min(totals.w_dark_spots / max, 1),
+    w_puffy_eyes: Math.min(totals.w_puffy_eyes / max, 1),
+    w_wrinkles: Math.min(totals.w_wrinkles / max, 1),
   };
 };
 

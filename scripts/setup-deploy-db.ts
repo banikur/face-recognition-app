@@ -47,19 +47,20 @@ async function runSeed() {
       return;
     }
 
-    // 1. Recommendations (skin types)
+    // 1. Recommendations (6 CNN conditions)
     const skinTypes = [
-      { name: 'Oily', description: 'Skin that produces excess sebum' },
-      { name: 'Dry', description: 'Skin that lacks moisture and oil' },
-      { name: 'Normal', description: 'Balanced skin with adequate moisture and oil' },
-      { name: 'Combination', description: 'Skin with both oily and dry areas' },
-      { name: 'Acne-prone', description: 'Skin that is susceptible to breakouts and pimples' },
+      { name: 'acne', description: 'Skin with acne breakouts' },
+      { name: 'blackheads', description: 'Skin with blackheads' },
+      { name: 'clear_skin', description: 'Healthy clear skin' },
+      { name: 'dark_spots', description: 'Skin with hyperpigmentation' },
+      { name: 'puffy_eyes', description: 'Skin with puffy eyes area' },
+      { name: 'wrinkles', description: 'Skin with fine lines and wrinkles' },
     ];
     const skinTypeIds: number[] = [];
     for (const st of skinTypes) {
       const r = await client.query(
         `INSERT INTO recommendations (condition, title, description, tips) VALUES ($1, $2, $3, NULL) RETURNING id`,
-        [st.name, st.name, st.description]
+        [st.name, st.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), st.description]
       );
       skinTypeIds.push(r.rows[0].id);
     }
@@ -79,38 +80,40 @@ async function runSeed() {
     ];
     for (const ing of ingredients) {
       await client.query(
-        `INSERT INTO ingredients (name, effect, w_oily, w_dry, w_normal, w_acne) VALUES ($1, $2, 0, 0, 0, 0)`,
+        `INSERT INTO ingredients (name, effect, w_acne, w_blackheads, w_clear_skin, w_dark_spots, w_puffy_eyes, w_wrinkles) VALUES ($1, $2, 0, 0, 0, 0, 0, 0)`,
         [ing.name, ing.effect]
       );
     }
     console.log('   Inserted ingredients:', ingredients.length);
 
-    // 3. Products
+    // 3. Products (6 CNN categories)
     const products = [
-      { name: 'Oil Control Face Wash', description: 'Controls excess oil and prevents breakouts' },
-      { name: 'Hydrating Face Wash', description: 'Gentle cleanser that hydrates while cleaning' },
-      { name: 'Balancing Face Wash', description: "Maintains skin's natural balance" },
-      { name: 'Dual Action Cleanser', description: 'Targets both oily and dry areas' },
-      { name: 'Anti-Acne Face Wash', description: 'Treats and prevents acne breakouts' },
+      { name: 'Oil Control Face Wash', description: 'Controls oil and prevents breakouts' },
+      { name: 'Hydrating Face Wash', description: 'Gentle cleanser that hydrates' },
+      { name: 'Balancing Face Wash', description: 'Maintains skin balance' },
+      { name: 'Anti-Acne Face Wash', description: 'Treats and prevents acne' },
+      { name: 'Brightening Cleanser', description: 'Targets dark spots' },
+      { name: 'Anti-Aging Face Wash', description: 'Reduces wrinkles' },
     ];
     const productIds: number[] = [];
     for (const p of products) {
       const r = await client.query(
-        `INSERT INTO products (name, brand_id, category_id, description, image_url, w_oily, w_dry, w_normal, w_acne) 
-         VALUES ($1, NULL, NULL, $2, NULL, 0, 0, 0, 0) RETURNING id`,
+        `INSERT INTO products (name, brand_id, category_id, description, image_url, w_acne, w_blackheads, w_clear_skin, w_dark_spots, w_puffy_eyes, w_wrinkles) 
+         VALUES ($1, NULL, NULL, $2, NULL, 0, 0, 0, 0, 0, 0) RETURNING id`,
         [p.name, p.description]
       );
       productIds.push(r.rows[0].id);
     }
     console.log('   Inserted products:', productIds.length);
 
-    // 4. Rules
+    // 4. Rules (map 6 conditions to products)
     const rules = [
-      { skin_type_id: skinTypeIds[0], product_id: productIds[0], confidence_score: 0.95 },
-      { skin_type_id: skinTypeIds[1], product_id: productIds[1], confidence_score: 0.95 },
-      { skin_type_id: skinTypeIds[2], product_id: productIds[2], confidence_score: 0.95 },
-      { skin_type_id: skinTypeIds[3], product_id: productIds[3], confidence_score: 0.9 },
-      { skin_type_id: skinTypeIds[4], product_id: productIds[4], confidence_score: 0.95 },
+      { skin_type_id: skinTypeIds[0], product_id: productIds[3], confidence_score: 0.95 }, // acne -> Anti-Acne
+      { skin_type_id: skinTypeIds[1], product_id: productIds[0], confidence_score: 0.95 }, // blackheads -> Oil Control
+      { skin_type_id: skinTypeIds[2], product_id: productIds[2], confidence_score: 0.95 }, // clear_skin -> Balancing
+      { skin_type_id: skinTypeIds[3], product_id: productIds[4], confidence_score: 0.95 }, // dark_spots -> Brightening
+      { skin_type_id: skinTypeIds[4], product_id: productIds[1], confidence_score: 0.95 }, // puffy_eyes -> Hydrating
+      { skin_type_id: skinTypeIds[5], product_id: productIds[5], confidence_score: 0.95 }, // wrinkles -> Anti-Aging
     ];
     for (const rule of rules) {
       await client.query(
@@ -120,19 +123,19 @@ async function runSeed() {
     }
     console.log('   Inserted rules:', rules.length);
 
-    // 5. Sample analysis logs
+    // 5. Sample analysis logs (6 CNN scores)
     const logs = [
-      { user_name: 'Sample User 1', user_age: 25, oily_score: 0.8, dry_score: 0.2, normal_score: 0.1, acne_score: 0.3, dominant_condition: 'Oily', recommended_product_ids: String(productIds[0]) },
-      { user_name: 'Sample User 2', user_age: 30, oily_score: 0.1, dry_score: 0.9, normal_score: 0.2, acne_score: 0.1, dominant_condition: 'Dry', recommended_product_ids: String(productIds[1]) },
-      { user_name: 'Sample User 3', user_age: 28, oily_score: 0.3, dry_score: 0.3, normal_score: 0.7, acne_score: 0.2, dominant_condition: 'Normal', recommended_product_ids: String(productIds[2]) },
-      { user_name: 'Sample User 4', user_age: 32, oily_score: 0.5, dry_score: 0.4, normal_score: 0.3, acne_score: 0.2, dominant_condition: 'Combination', recommended_product_ids: String(productIds[3]) },
-      { user_name: 'Sample User 5', user_age: 22, oily_score: 0.6, dry_score: 0.2, normal_score: 0.1, acne_score: 0.8, dominant_condition: 'Acne-prone', recommended_product_ids: String(productIds[4]) },
+      { user_name: 'Sample User 1', user_age: 25, acne_score: 0.8, blackheads_score: 0.2, clear_skin_score: 0.1, dark_spots_score: 0.1, puffy_eyes_score: 0.1, wrinkles_score: 0.1, dominant_condition: 'acne', recommended_product_ids: String(productIds[3]) },
+      { user_name: 'Sample User 2', user_age: 30, acne_score: 0.1, blackheads_score: 0.9, clear_skin_score: 0.2, dark_spots_score: 0.1, puffy_eyes_score: 0.1, wrinkles_score: 0.1, dominant_condition: 'blackheads', recommended_product_ids: String(productIds[0]) },
+      { user_name: 'Sample User 3', user_age: 28, acne_score: 0.2, blackheads_score: 0.2, clear_skin_score: 0.8, dark_spots_score: 0.1, puffy_eyes_score: 0.1, wrinkles_score: 0.2, dominant_condition: 'clear_skin', recommended_product_ids: String(productIds[2]) },
+      { user_name: 'Sample User 4', user_age: 32, acne_score: 0.2, blackheads_score: 0.1, clear_skin_score: 0.3, dark_spots_score: 0.7, puffy_eyes_score: 0.2, wrinkles_score: 0.3, dominant_condition: 'dark_spots', recommended_product_ids: String(productIds[2]) },
+      { user_name: 'Sample User 5', user_age: 22, acne_score: 0.6, blackheads_score: 0.5, clear_skin_score: 0.1, dark_spots_score: 0.1, puffy_eyes_score: 0.1, wrinkles_score: 0.1, dominant_condition: 'acne', recommended_product_ids: String(productIds[3]) },
     ];
     for (const log of logs) {
       await client.query(
-        `INSERT INTO analysis_logs (user_name, user_email, user_phone, user_age, oily_score, dry_score, normal_score, acne_score, dominant_condition, recommended_product_ids)
-         VALUES ($1, NULL, NULL, $2, $3, $4, $5, $6, $7, $8)`,
-        [log.user_name, log.user_age, log.oily_score, log.dry_score, log.normal_score, log.acne_score, log.dominant_condition, log.recommended_product_ids]
+        `INSERT INTO analysis_logs (user_name, user_email, user_phone, user_age, acne_score, blackheads_score, clear_skin_score, dark_spots_score, puffy_eyes_score, wrinkles_score, dominant_condition, recommended_product_ids)
+         VALUES ($1, NULL, NULL, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [log.user_name, log.user_age, log.acne_score, log.blackheads_score, log.clear_skin_score, log.dark_spots_score, log.puffy_eyes_score, log.wrinkles_score, log.dominant_condition, log.recommended_product_ids]
       );
     }
     console.log('   Inserted analysis logs:', logs.length);

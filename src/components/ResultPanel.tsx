@@ -12,11 +12,12 @@ interface Scores {
 interface Props {
   skinType: string | null;
   scores: Scores | null;
+  confidence?: number;
   isAnalyzing?: boolean;
   faceDetected?: boolean;
 }
 
-export default function ResultPanel({ skinType, scores, isAnalyzing = false, faceDetected }: Props) {
+export default function ResultPanel({ skinType, scores, confidence, isAnalyzing = false, faceDetected }: Props) {
   const scoreEntries = [
     { label: "Acne", key: "acne", color: "#EF4444" },
     { label: "Blackheads", key: "blackheads", color: "#6B7280" },
@@ -37,11 +38,19 @@ export default function ResultPanel({ skinType, scores, isAnalyzing = false, fac
         </div>
       ) : skinType && faceDetected ? (
         <>
-          <div className="mt-4 flex items-center gap-3">
-            <span className="text-xs text-[#111]/50">Kondisi Utama</span>
-            <span className="rounded-full bg-[#3B82F6] px-3 py-1 text-xs font-medium text-white">
-              {skinType}
-            </span>
+          <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-[#111]/50">Kondisi Utama</span>
+              <span className="rounded-full bg-[#3B82F6] px-3 py-1 text-xs font-medium text-white">
+                {skinType}
+              </span>
+            </div>
+            {confidence != null && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-[#111]/50">Confidence</span>
+                <span className="text-xs font-semibold text-[#10B981]">{confidence}%</span>
+              </div>
+            )}
           </div>
 
           <div className="mt-5">

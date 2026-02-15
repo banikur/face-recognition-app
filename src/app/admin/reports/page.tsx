@@ -104,10 +104,12 @@ export default function ReportsAdmin() {
 
   const getConditionBadge = (condition: string) => {
     const badges: Record<string, string> = {
-      oily: 'admin-badge admin-badge-oily',
-      dry: 'admin-badge admin-badge-dry',
       acne: 'admin-badge admin-badge-acne',
-      normal: 'admin-badge admin-badge-normal',
+      blackheads: 'admin-badge admin-badge-oily',
+      clear_skin: 'admin-badge admin-badge-normal',
+      dark_spots: 'admin-badge admin-badge-dry',
+      puffy_eyes: 'admin-badge admin-badge-oily',
+      wrinkles: 'admin-badge admin-badge-dry',
     };
     return badges[condition] || 'admin-badge';
   };

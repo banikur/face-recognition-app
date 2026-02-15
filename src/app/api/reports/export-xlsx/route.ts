@@ -15,17 +15,19 @@ export async function GET(request: NextRequest) {
       logs = await getAllAnalysisLogs();
     }
 
-    // Prepare data for Excel
+    // Prepare data for Excel (6 CNN scores)
     const analysesData = logs.map(log => ({
       ID: log.id,
       Name: log.user_name,
       Email: log.user_email || '',
       Phone: log.user_phone || '',
       Age: log.user_age,
-      'Oily Score': log.oily_score,
-      'Dry Score': log.dry_score,
-      'Normal Score': log.normal_score,
       'Acne Score': log.acne_score,
+      'Blackheads Score': log.blackheads_score,
+      'Clear Skin Score': log.clear_skin_score,
+      'Dark Spots Score': log.dark_spots_score,
+      'Puffy Eyes Score': log.puffy_eyes_score,
+      'Wrinkles Score': log.wrinkles_score,
       'Dominant Condition': log.dominant_condition,
       'Recommended Products': log.recommended_product_ids,
       'Created At': log.created_at

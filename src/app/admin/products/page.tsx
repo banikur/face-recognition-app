@@ -311,11 +311,13 @@ export default function ProductsAdmin() {
                     ) : '—'}
                   </td>
                   <td>
-                    <div className="flex gap-1 text-[10px] font-mono">
-                      <span className="px-1 rounded" style={{ backgroundColor: '#FEF3C7' }}>O:{(product.w_oily * 100).toFixed(0)}</span>
-                      <span className="px-1 rounded" style={{ backgroundColor: '#DBEAFE' }}>D:{(product.w_dry * 100).toFixed(0)}</span>
-                      <span className="px-1 rounded" style={{ backgroundColor: '#D1FAE5' }}>N:{(product.w_normal * 100).toFixed(0)}</span>
-                      <span className="px-1 rounded" style={{ backgroundColor: '#FEE2E2' }}>A:{(product.w_acne * 100).toFixed(0)}</span>
+                    <div className="flex flex-wrap gap-1 text-[10px] font-mono">
+                      <span className="px-1 rounded" style={{ backgroundColor: '#FEE2E2' }}>Ac:{(product.w_acne * 100).toFixed(0)}</span>
+                      <span className="px-1 rounded" style={{ backgroundColor: '#E5E7EB' }}>Bk:{(product.w_blackheads * 100).toFixed(0)}</span>
+                      <span className="px-1 rounded" style={{ backgroundColor: '#D1FAE5' }}>Cl:{(product.w_clear_skin * 100).toFixed(0)}</span>
+                      <span className="px-1 rounded" style={{ backgroundColor: '#E9D5FF' }}>Dk:{(product.w_dark_spots * 100).toFixed(0)}</span>
+                      <span className="px-1 rounded" style={{ backgroundColor: '#FEF3C7' }}>Pf:{(product.w_puffy_eyes * 100).toFixed(0)}</span>
+                      <span className="px-1 rounded" style={{ backgroundColor: '#DBEAFE' }}>Wr:{(product.w_wrinkles * 100).toFixed(0)}</span>
                     </div>
                   </td>
                   <td className="text-right">

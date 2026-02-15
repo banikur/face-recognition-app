@@ -10,10 +10,12 @@ interface Product {
   description: string;
   ingredients: string;
   image_url: string;
-  w_oily: number;
-  w_dry: number;
-  w_normal: number;
   w_acne: number;
+  w_blackheads: number;
+  w_clear_skin: number;
+  w_dark_spots: number;
+  w_puffy_eyes: number;
+  w_wrinkles: number;
 }
 
 interface AnalysisLog {
@@ -22,10 +24,12 @@ interface AnalysisLog {
   user_email: string | null;
   user_phone: string | null;
   user_age: number;
-  oily_score: number;
-  dry_score: number;
-  normal_score: number;
   acne_score: number;
+  blackheads_score: number;
+  clear_skin_score: number;
+  dark_spots_score: number;
+  puffy_eyes_score: number;
+  wrinkles_score: number;
   dominant_condition: string;
   recommended_product_ids: string;
   created_at: string;
@@ -333,10 +337,12 @@ export default function AdminDashboard() {
                       <td className="px-4 py-3">{product.brand}</td>
                       <td className="px-4 py-3 text-sm">{product.ingredients.substring(0, 50)}...</td>
                       <td className="px-4 py-3 text-xs">
-                        <div>O: {product.w_oily.toFixed(2)}</div>
-                        <div>D: {product.w_dry.toFixed(2)}</div>
-                        <div>N: {product.w_normal.toFixed(2)}</div>
-                        <div>A: {product.w_acne.toFixed(2)}</div>
+                        <div>Ac: {product.w_acne.toFixed(2)}</div>
+                        <div>Bk: {product.w_blackheads.toFixed(2)}</div>
+                        <div>Cl: {product.w_clear_skin.toFixed(2)}</div>
+                        <div>Dk: {product.w_dark_spots.toFixed(2)}</div>
+                        <div>Pf: {product.w_puffy_eyes.toFixed(2)}</div>
+                        <div>Wr: {product.w_wrinkles.toFixed(2)}</div>
                       </td>
                       <td className="px-4 py-3">
                         <button
@@ -374,10 +380,12 @@ export default function AdminDashboard() {
                   className="px-4 py-2 border rounded-lg"
                 >
                   <option value="">All</option>
-                  <option value="oily">Oily</option>
-                  <option value="dry">Dry</option>
-                  <option value="normal">Normal</option>
                   <option value="acne">Acne</option>
+                  <option value="blackheads">Blackheads</option>
+                  <option value="clear_skin">Clear Skin</option>
+                  <option value="dark_spots">Dark Spots</option>
+                  <option value="puffy_eyes">Puffy Eyes</option>
+                  <option value="wrinkles">Wrinkles</option>
                 </select>
               </div>
               <div>
@@ -433,10 +441,12 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-xs">
-                        <div>O: {(log.oily_score * 100).toFixed(0)}%</div>
-                        <div>D: {(log.dry_score * 100).toFixed(0)}%</div>
-                        <div>N: {(log.normal_score * 100).toFixed(0)}%</div>
-                        <div>A: {(log.acne_score * 100).toFixed(0)}%</div>
+                        <div>Ac: {((log.acne_score ?? 0) * 100).toFixed(0)}%</div>
+                        <div>Bk: {((log.blackheads_score ?? 0) * 100).toFixed(0)}%</div>
+                        <div>Cl: {((log.clear_skin_score ?? 0) * 100).toFixed(0)}%</div>
+                        <div>Dk: {((log.dark_spots_score ?? 0) * 100).toFixed(0)}%</div>
+                        <div>Pf: {((log.puffy_eyes_score ?? 0) * 100).toFixed(0)}%</div>
+                        <div>Wr: {((log.wrinkles_score ?? 0) * 100).toFixed(0)}%</div>
                       </td>
                       <td className="px-4 py-3 text-sm">
                         {new Date(log.created_at).toLocaleString()}

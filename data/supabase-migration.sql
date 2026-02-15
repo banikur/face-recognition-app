@@ -22,16 +22,18 @@ CREATE TABLE IF NOT EXISTS product_categories (
 );
 
 -- ============================================
--- MASTER DATA: Ingredients (with weight mapping)
+-- MASTER DATA: Ingredients (6 CNN weights)
 -- ============================================
 CREATE TABLE IF NOT EXISTS ingredients (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   effect TEXT,
-  w_oily REAL DEFAULT 0,
-  w_dry REAL DEFAULT 0,
-  w_normal REAL DEFAULT 0,
   w_acne REAL DEFAULT 0,
+  w_blackheads REAL DEFAULT 0,
+  w_clear_skin REAL DEFAULT 0,
+  w_dark_spots REAL DEFAULT 0,
+  w_puffy_eyes REAL DEFAULT 0,
+  w_wrinkles REAL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -57,10 +59,12 @@ CREATE TABLE IF NOT EXISTS products (
   category_id BIGINT REFERENCES product_categories(id),
   description TEXT,
   image_url TEXT,
-  w_oily REAL DEFAULT 0,
-  w_dry REAL DEFAULT 0,
-  w_normal REAL DEFAULT 0,
   w_acne REAL DEFAULT 0,
+  w_blackheads REAL DEFAULT 0,
+  w_clear_skin REAL DEFAULT 0,
+  w_dark_spots REAL DEFAULT 0,
+  w_puffy_eyes REAL DEFAULT 0,
+  w_wrinkles REAL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -93,10 +97,12 @@ CREATE TABLE IF NOT EXISTS analysis_logs (
   user_email TEXT,
   user_phone TEXT,
   user_age INTEGER,
-  oily_score REAL NOT NULL,
-  dry_score REAL NOT NULL,
-  normal_score REAL NOT NULL,
   acne_score REAL NOT NULL,
+  blackheads_score REAL NOT NULL,
+  clear_skin_score REAL NOT NULL,
+  dark_spots_score REAL NOT NULL,
+  puffy_eyes_score REAL NOT NULL,
+  wrinkles_score REAL NOT NULL,
   dominant_condition TEXT NOT NULL,
   recommended_product_ids TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()

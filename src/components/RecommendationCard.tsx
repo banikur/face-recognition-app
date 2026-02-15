@@ -5,33 +5,42 @@ import { useEffect, useState } from "react";
 interface Product {
   id: number;
   name: string;
-  brand: string;
-  description: string;
+  brand: string | null;
+  description: string | null;
 }
 
 interface Props {
   skinType: string;
+  recommendations?: Product[] | null;
 }
 
-export default function RecommendationCard({ skinType }: Props) {
+export default function RecommendationCard({ skinType, recommendations }: Props) {
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Pakai rekomendasi dari parent (save-from-scan) bila ada
+    if (Array.isArray(recommendations)) {
+      setItems(recommendations.map(p => ({ ...p, brand: p.brand ?? '' })));
+      setLoading(false);
+      return;
+    }
+
+    // Fallback: fetch dari API bila rekomendasi belum tersedia
     const load = async () => {
       setLoading(true);
       try {
         const res = await fetch("/api/products", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to fetch products");
-        const products: Product[] = await res.json();
-        setItems(products.slice(0, 3));
+        const products = await res.json();
+        setItems((products as Product[]).slice(0, 3).map(p => ({ ...p, brand: p.brand ?? '' })));
       } catch {
         setItems([]);
       }
       setLoading(false);
     };
     load();
-  }, [skinType]);
+  }, [skinType, recommendations]);
 
   return (
     <section className="flex-1 rounded-xl border border-[#E5E7EB] bg-white p-4">

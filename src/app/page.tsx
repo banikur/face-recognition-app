@@ -6,18 +6,44 @@ import ResultPanel from "@/components/ResultPanel";
 import RecommendationCard from "@/components/RecommendationCard";
 import { AnalysisResult } from "@/lib/skinAnalyzer";
 
+interface RecommendedProduct {
+  id: number;
+  name: string;
+  brand: string | null;
+  description: string | null;
+  image_url?: string | null;
+}
+
 export default function Home() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [recommendations, setRecommendations] = useState<RecommendedProduct[] | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleCapture = (result: AnalysisResult) => {
+  const handleCapture = async (result: AnalysisResult) => {
     setIsAnalyzing(true);
+    setAnalysis(result);
 
-    // Small delay to show loading state
-    setTimeout(() => {
-      setAnalysis(result);
-      setIsAnalyzing(false);
-    }, 500);
+    // Simpan ke analysis_logs & dapatkan rekomendasi (selaras dengan CNN)
+    if (result.faceDetected && result.scores) {
+      try {
+        const res = await fetch("/api/analysis/save-from-scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            scores: result.scores,
+            skinType: result.skinType,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setRecommendations(data.recommendations ?? []);
+        }
+      } catch (e) {
+        console.error("Failed to save analysis:", e);
+      }
+    }
+
+    setTimeout(() => setIsAnalyzing(false), 300);
   };
 
   return (
@@ -33,10 +59,16 @@ export default function Home() {
           <ResultPanel
             skinType={analysis?.skinType ?? null}
             scores={analysis?.scores ?? null}
+            confidence={analysis?.confidence}
             isAnalyzing={isAnalyzing}
             faceDetected={analysis?.faceDetected}
           />
-          {analysis?.faceDetected && <RecommendationCard skinType={analysis.skinType} />}
+          {analysis?.faceDetected && (
+            <RecommendationCard
+              skinType={analysis.skinType}
+              recommendations={recommendations}
+            />
+          )}
         </div>
       </div>
     </div>

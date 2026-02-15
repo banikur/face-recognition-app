@@ -9,10 +9,12 @@ interface Product {
   brand: string;
   description: string;
   ingredients: string;
-  w_oily: number;
-  w_dry: number;
-  w_normal: number;
   w_acne: number;
+  w_blackheads: number;
+  w_clear_skin: number;
+  w_dark_spots: number;
+  w_puffy_eyes: number;
+  w_wrinkles: number;
 }
 
 export default function Recommendations() {

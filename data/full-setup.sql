@@ -1,6 +1,7 @@
 -- ============================================
--- FULL SETUP: Migrasi + Seed
--- Jalankan di pgAdmin, DBeaver, Supabase SQL Editor, atau psql
+-- FULL SETUP: Migrasi + Seed (database kosong)
+-- 6 Kategori CNN: acne, blackheads, clear_skin, dark_spots, puffy_eyes, wrinkles
+-- Ingredients = kunci rule-based recommendation
 -- ============================================
 
 -- ==================== MIGRASI ====================
@@ -23,10 +24,12 @@ CREATE TABLE IF NOT EXISTS ingredients (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   effect TEXT,
-  w_oily REAL DEFAULT 0,
-  w_dry REAL DEFAULT 0,
-  w_normal REAL DEFAULT 0,
   w_acne REAL DEFAULT 0,
+  w_blackheads REAL DEFAULT 0,
+  w_clear_skin REAL DEFAULT 0,
+  w_dark_spots REAL DEFAULT 0,
+  w_puffy_eyes REAL DEFAULT 0,
+  w_wrinkles REAL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -46,10 +49,12 @@ CREATE TABLE IF NOT EXISTS products (
   category_id BIGINT REFERENCES product_categories(id),
   description TEXT,
   image_url TEXT,
-  w_oily REAL DEFAULT 0,
-  w_dry REAL DEFAULT 0,
-  w_normal REAL DEFAULT 0,
   w_acne REAL DEFAULT 0,
+  w_blackheads REAL DEFAULT 0,
+  w_clear_skin REAL DEFAULT 0,
+  w_dark_spots REAL DEFAULT 0,
+  w_puffy_eyes REAL DEFAULT 0,
+  w_wrinkles REAL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -73,16 +78,17 @@ CREATE TABLE IF NOT EXISTS analysis_logs (
   user_email TEXT,
   user_phone TEXT,
   user_age INTEGER,
-  oily_score REAL NOT NULL,
-  dry_score REAL NOT NULL,
-  normal_score REAL NOT NULL,
   acne_score REAL NOT NULL,
+  blackheads_score REAL NOT NULL,
+  clear_skin_score REAL NOT NULL,
+  dark_spots_score REAL NOT NULL,
+  puffy_eyes_score REAL NOT NULL,
+  wrinkles_score REAL NOT NULL,
   dominant_condition TEXT NOT NULL,
   recommended_product_ids TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Admin login (simple: email + bcrypt password)
 CREATE TABLE IF NOT EXISTS admin_users (
   id BIGSERIAL PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
@@ -90,65 +96,113 @@ CREATE TABLE IF NOT EXISTS admin_users (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ==================== SEED (skip jika data sudah ada) ====================
+-- ==================== SEED ====================
 
 INSERT INTO recommendations (condition, title, description, tips)
 SELECT * FROM (VALUES
-  ('Oily', 'Oily', 'Skin that produces excess sebum', NULL::TEXT),
-  ('Dry', 'Dry', 'Skin that lacks moisture and oil', NULL),
-  ('Normal', 'Normal', 'Balanced skin with adequate moisture and oil', NULL),
-  ('Combination', 'Combination', 'Skin with both oily and dry areas', NULL),
-  ('Acne-prone', 'Acne-prone', 'Skin that is susceptible to breakouts and pimples', NULL)
+  ('acne', 'Acne', 'Skin with acne breakouts', NULL::TEXT),
+  ('blackheads', 'Blackheads', 'Skin with blackheads', NULL),
+  ('clear_skin', 'Clear Skin', 'Healthy clear skin', NULL),
+  ('dark_spots', 'Dark Spots', 'Skin with hyperpigmentation', NULL),
+  ('puffy_eyes', 'Puffy Eyes', 'Skin with puffy eyes area', NULL),
+  ('wrinkles', 'Wrinkles', 'Skin with fine lines and wrinkles', NULL)
 ) AS v(condition, title, description, tips)
 ON CONFLICT (condition) DO NOTHING;
 
-INSERT INTO ingredients (name, effect, w_oily, w_dry, w_normal, w_acne)
+INSERT INTO ingredients (name, effect, w_acne, w_blackheads, w_clear_skin, w_dark_spots, w_puffy_eyes, w_wrinkles)
 SELECT * FROM (VALUES
-  ('Salicylic Acid', 'Exfoliates and unclogs pores', 0, 0, 0, 0),
-  ('Tea Tree Oil', 'Natural antibacterial agent', 0, 0, 0, 0),
-  ('Hyaluronic Acid', 'Intense hydration', 0, 0, 0, 0),
-  ('Glycerin', 'Moisture retention', 0, 0, 0, 0),
-  ('Aloe Vera', 'Soothing and calming', 0, 0, 0, 0),
-  ('Chamomile', 'Anti-inflammatory properties', 0, 0, 0, 0),
-  ('Niacinamide', 'Reduces sebum production', 0, 0, 0, 0),
-  ('Ceramides', 'Strengthens skin barrier', 0, 0, 0, 0),
-  ('Benzoyl Peroxide', 'Kills acne-causing bacteria', 0, 0, 0, 0)
-) AS v(name, effect, w_oily, w_dry, w_normal, w_acne)
+  ('Salicylic Acid', 'Exfoliates and unclogs pores', 0.9, 0.8, 0.1, 0.2, 0, 0),
+  ('Tea Tree Oil', 'Natural antibacterial', 0.8, 0.6, 0.2, 0, 0, 0),
+  ('Hyaluronic Acid', 'Intense hydration', 0, 0, 0.6, 0.3, 0.5, 0.4),
+  ('Glycerin', 'Moisture retention', 0, 0, 0.7, 0.4, 0.3, 0.2),
+  ('Aloe Vera', 'Soothing and calming', 0.3, 0, 0.7, 0.3, 0.5, 0.2),
+  ('Chamomile', 'Anti-inflammatory', 0.2, 0, 0.6, 0.2, 0.6, 0.2),
+  ('Niacinamide', 'Reduces sebum', 0.6, 0.7, 0.5, 0.4, 0.2, 0.3),
+  ('Ceramides', 'Strengthens skin barrier', 0, 0, 0.6, 0.3, 0.2, 0.5),
+  ('Benzoyl Peroxide', 'Kills acne bacteria', 0.95, 0.5, 0, 0, 0, 0),
+  ('Retinol', 'Anti-aging, cell turnover', 0.4, 0.3, 0.3, 0.6, 0.2, 0.8),
+  ('Vitamin C', 'Brightening, antioxidant', 0.2, 0.2, 0.5, 0.8, 0.3, 0.5)
+) AS v(name, effect, w_acne, w_blackheads, w_clear_skin, w_dark_spots, w_puffy_eyes, w_wrinkles)
 ON CONFLICT (name) DO NOTHING;
 
-INSERT INTO products (name, brand_id, category_id, description, image_url, w_oily, w_dry, w_normal, w_acne)
+INSERT INTO products (name, brand_id, category_id, description, image_url, w_acne, w_blackheads, w_clear_skin, w_dark_spots, w_puffy_eyes, w_wrinkles)
 SELECT * FROM (VALUES
-  ('Oil Control Face Wash', NULL::BIGINT, NULL::BIGINT, 'Controls excess oil and prevents breakouts', NULL, 0::REAL, 0::REAL, 0::REAL, 0::REAL),
-  ('Hydrating Face Wash', NULL::BIGINT, NULL::BIGINT, 'Gentle cleanser that hydrates while cleaning', NULL, 0::REAL, 0::REAL, 0::REAL, 0::REAL),
-  ('Balancing Face Wash', NULL::BIGINT, NULL::BIGINT, 'Maintains skin''s natural balance', NULL, 0::REAL, 0::REAL, 0::REAL, 0::REAL),
-  ('Dual Action Cleanser', NULL::BIGINT, NULL::BIGINT, 'Targets both oily and dry areas', NULL, 0::REAL, 0::REAL, 0::REAL, 0::REAL),
-  ('Anti-Acne Face Wash', NULL::BIGINT, NULL::BIGINT, 'Treats and prevents acne breakouts', NULL, 0::REAL, 0::REAL, 0::REAL, 0::REAL)
-) AS v(name, brand_id, category_id, description, image_url, w_oily, w_dry, w_normal, w_acne)
+  ('Oil Control Face Wash', NULL::BIGINT, NULL::BIGINT, 'Controls oil and prevents breakouts', NULL, 0::REAL, 0::REAL, 0::REAL, 0::REAL, 0::REAL, 0::REAL),
+  ('Hydrating Face Wash', NULL::BIGINT, NULL::BIGINT, 'Gentle cleanser that hydrates', NULL, 0::REAL, 0::REAL, 0::REAL, 0::REAL, 0::REAL, 0::REAL),
+  ('Balancing Face Wash', NULL::BIGINT, NULL::BIGINT, 'Maintains skin balance', NULL, 0::REAL, 0::REAL, 0::REAL, 0::REAL, 0::REAL, 0::REAL),
+  ('Anti-Acne Face Wash', NULL::BIGINT, NULL::BIGINT, 'Treats and prevents acne', NULL, 0::REAL, 0::REAL, 0::REAL, 0::REAL, 0::REAL, 0::REAL),
+  ('Brightening Cleanser', NULL::BIGINT, NULL::BIGINT, 'Targets dark spots', NULL, 0::REAL, 0::REAL, 0::REAL, 0::REAL, 0::REAL, 0::REAL),
+  ('Anti-Aging Face Wash', NULL::BIGINT, NULL::BIGINT, 'Reduces wrinkles', NULL, 0::REAL, 0::REAL, 0::REAL, 0::REAL, 0::REAL, 0::REAL)
+) AS v(name, brand_id, category_id, description, image_url, w_acne, w_blackheads, w_clear_skin, w_dark_spots, w_puffy_eyes, w_wrinkles)
 WHERE NOT EXISTS (SELECT 1 FROM products LIMIT 1);
 
+INSERT INTO product_ingredients (product_id, ingredient_id)
+SELECT p.id, i.id
+FROM products p
+CROSS JOIN (VALUES
+  ('Oil Control Face Wash', 'Salicylic Acid'),
+  ('Oil Control Face Wash', 'Tea Tree Oil'),
+  ('Oil Control Face Wash', 'Niacinamide'),
+  ('Hydrating Face Wash', 'Hyaluronic Acid'),
+  ('Hydrating Face Wash', 'Glycerin'),
+  ('Hydrating Face Wash', 'Aloe Vera'),
+  ('Hydrating Face Wash', 'Ceramides'),
+  ('Balancing Face Wash', 'Glycerin'),
+  ('Balancing Face Wash', 'Aloe Vera'),
+  ('Balancing Face Wash', 'Chamomile'),
+  ('Anti-Acne Face Wash', 'Benzoyl Peroxide'),
+  ('Anti-Acne Face Wash', 'Salicylic Acid'),
+  ('Anti-Acne Face Wash', 'Tea Tree Oil'),
+  ('Brightening Cleanser', 'Vitamin C'),
+  ('Brightening Cleanser', 'Niacinamide'),
+  ('Brightening Cleanser', 'Aloe Vera'),
+  ('Anti-Aging Face Wash', 'Retinol'),
+  ('Anti-Aging Face Wash', 'Vitamin C'),
+  ('Anti-Aging Face Wash', 'Ceramides')
+) AS v(pname, iname)
+JOIN ingredients i ON i.name = v.iname
+WHERE p.name = v.pname
+ON CONFLICT (product_id, ingredient_id) DO NOTHING;
+
+UPDATE products p SET
+  w_acne = LEAST(agg.s_acne / NULLIF(agg.mx, 0), 1),
+  w_blackheads = LEAST(agg.s_blackheads / NULLIF(agg.mx, 0), 1),
+  w_clear_skin = LEAST(agg.s_clear_skin / NULLIF(agg.mx, 0), 1),
+  w_dark_spots = LEAST(agg.s_dark_spots / NULLIF(agg.mx, 0), 1),
+  w_puffy_eyes = LEAST(agg.s_puffy_eyes / NULLIF(agg.mx, 0), 1),
+  w_wrinkles = LEAST(agg.s_wrinkles / NULLIF(agg.mx, 0), 1)
+FROM (
+  SELECT pi.product_id,
+    SUM(i.w_acne) AS s_acne, SUM(i.w_blackheads) AS s_blackheads, SUM(i.w_clear_skin) AS s_clear_skin,
+    SUM(i.w_dark_spots) AS s_dark_spots, SUM(i.w_puffy_eyes) AS s_puffy_eyes, SUM(i.w_wrinkles) AS s_wrinkles,
+    GREATEST(SUM(i.w_acne), SUM(i.w_blackheads), SUM(i.w_clear_skin), SUM(i.w_dark_spots), SUM(i.w_puffy_eyes), SUM(i.w_wrinkles), 1) AS mx
+  FROM product_ingredients pi
+  JOIN ingredients i ON i.id = pi.ingredient_id
+  GROUP BY pi.product_id
+) agg
+WHERE p.id = agg.product_id;
+
 INSERT INTO rules (skin_type_id, product_id, confidence_score)
-SELECT r.id, p.id, CASE r.condition WHEN 'Combination' THEN 0.90 ELSE 0.95 END
+SELECT r.id, p.id, 0.95
 FROM recommendations r
 JOIN products p ON (
-  (r.condition = 'Oily' AND p.name = 'Oil Control Face Wash') OR
-  (r.condition = 'Dry' AND p.name = 'Hydrating Face Wash') OR
-  (r.condition = 'Normal' AND p.name = 'Balancing Face Wash') OR
-  (r.condition = 'Combination' AND p.name = 'Dual Action Cleanser') OR
-  (r.condition = 'Acne-prone' AND p.name = 'Anti-Acne Face Wash')
+  (r.condition = 'acne' AND p.name = 'Anti-Acne Face Wash') OR
+  (r.condition = 'blackheads' AND p.name = 'Oil Control Face Wash') OR
+  (r.condition = 'clear_skin' AND p.name = 'Balancing Face Wash') OR
+  (r.condition = 'dark_spots' AND p.name = 'Brightening Cleanser') OR
+  (r.condition = 'puffy_eyes' AND p.name = 'Hydrating Face Wash') OR
+  (r.condition = 'wrinkles' AND p.name = 'Anti-Aging Face Wash')
 )
 WHERE NOT EXISTS (SELECT 1 FROM rules LIMIT 1);
 
-INSERT INTO analysis_logs (user_name, user_email, user_phone, user_age, oily_score, dry_score, normal_score, acne_score, dominant_condition, recommended_product_ids)
+INSERT INTO analysis_logs (user_name, user_email, user_phone, user_age, acne_score, blackheads_score, clear_skin_score, dark_spots_score, puffy_eyes_score, wrinkles_score, dominant_condition, recommended_product_ids)
 SELECT * FROM (VALUES
-  ('Sample User 1', NULL, NULL, 25, 0.8, 0.2, 0.1, 0.3, 'Oily', '1'),
-  ('Sample User 2', NULL, NULL, 30, 0.1, 0.9, 0.2, 0.1, 'Dry', '2'),
-  ('Sample User 3', NULL, NULL, 28, 0.3, 0.3, 0.7, 0.2, 'Normal', '3'),
-  ('Sample User 4', NULL, NULL, 32, 0.5, 0.4, 0.3, 0.2, 'Combination', '4'),
-  ('Sample User 5', NULL, NULL, 22, 0.6, 0.2, 0.1, 0.8, 'Acne-prone', '5')
-) AS v(user_name, user_email, user_phone, user_age, oily_score, dry_score, normal_score, acne_score, dominant_condition, recommended_product_ids)
+  ('Guest', NULL, NULL, 0, 0.2, 0.1, 0.8, 0.1, 0.1, 0.1, 'clear_skin', '3'),
+  ('Guest', NULL, NULL, 0, 0.85, 0.6, 0.1, 0.2, 0, 0.1, 'acne', '4'),
+  ('Guest', NULL, NULL, 0, 0.1, 0.1, 0.2, 0.7, 0.2, 0.3, 'dark_spots', '5')
+) AS v(user_name, user_email, user_phone, user_age, acne_score, blackheads_score, clear_skin_score, dark_spots_score, puffy_eyes_score, wrinkles_score, dominant_condition, recommended_product_ids)
 WHERE NOT EXISTS (SELECT 1 FROM analysis_logs LIMIT 1);
 
--- Admin (email: admin@skinlab.com, password: admin123)
 INSERT INTO admin_users (email, password_hash)
 SELECT 'admin@skinlab.com', '$2b$10$JunYk0VKbLJ0ftAcqcVxsO3YdGh7vWFOcu9LCyVsyqshHRBFDy.Wq'
 WHERE NOT EXISTS (SELECT 1 FROM admin_users WHERE email = 'admin@skinlab.com');

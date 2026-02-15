@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getAnalysisStatsAction } from './actions';
+import TrainingInfoCard from '@/components/TrainingInfoCard';
 
 export default async function AdminDashboard() {
   const stats = await getAnalysisStatsAction();
@@ -14,10 +15,12 @@ export default async function AdminDashboard() {
 
   const getConditionBadge = (condition: string) => {
     const badges: Record<string, string> = {
-      oily: 'admin-badge admin-badge-oily',
-      dry: 'admin-badge admin-badge-dry',
       acne: 'admin-badge admin-badge-acne',
-      normal: 'admin-badge admin-badge-normal',
+      blackheads: 'admin-badge admin-badge-oily',
+      clear_skin: 'admin-badge admin-badge-normal',
+      dark_spots: 'admin-badge admin-badge-dry',
+      puffy_eyes: 'admin-badge admin-badge-oily',
+      wrinkles: 'admin-badge admin-badge-dry',
     };
     return badges[condition] || 'admin-badge';
   };
@@ -110,6 +113,11 @@ export default async function AdminDashboard() {
         </div>
       </div>
 
+      {/* Training Info */}
+      <div>
+        <TrainingInfoCard />
+      </div>
+
       {/* Recent Analysis Table */}
       <div>
         <h2 className="admin-section-header">Recent Activity</h2>
@@ -138,7 +146,7 @@ export default async function AdminDashboard() {
                   </td>
                   <td>
                     <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {Math.round(log.oily_score * 100)}/{Math.round(log.dry_score * 100)}/{Math.round(log.acne_score * 100)}
+                      Ac:{Math.round(log.acne_score * 100)} Cl:{Math.round(log.clear_skin_score * 100)} Wr:{Math.round(log.wrinkles_score * 100)}
                     </span>
                   </td>
                   <td style={{ color: 'var(--text-muted)' }}>
