@@ -25,7 +25,7 @@ interface Chain {
 
 function buildChain(pool: Pool, table: string): {
   _table: string;
-  _select: string;
+  _select: string | null;
   _where: { col: string; op: string; val: unknown }[];
   _orderBy: { col: string; asc: boolean } | null;
   _single: boolean;
@@ -36,7 +36,7 @@ function buildChain(pool: Pool, table: string): {
 } {
   return {
     _table: table,
-    _select: '*',
+    _select: null,
     _where: [],
     _orderBy: null,
     _single: false,
@@ -55,12 +55,17 @@ async function executeChain(state: ReturnType<typeof buildChain>): Promise<Query
   const { _table, _select, _where, _single, _insert, _update, _delete, _pool } = state;
   const client = await _pool.connect();
   try {
+    // Helper to determine RETURNING clause
+    const returning = _select
+      ? (_select === '*' ? ' RETURNING *' : ` RETURNING ${_select}`)
+      : '';
+
     if (_insert) {
       const cols = Object.keys(_insert).filter((k) => _insert[k] !== undefined);
       const vals = cols.map((k) => _insert[k]);
       const placeholders = cols.map((_, i) => `$${i + 1}`);
       const quotedCols = cols.map((c) => `"${c}"`).join(', ');
-      const returning = state._select && state._select.includes('id') ? ' RETURNING id' : '';
+
       const q = `INSERT INTO ${_table} (${quotedCols}) VALUES (${placeholders.join(', ')})${returning}`;
       const r = await client.query(q, vals);
       return { data: _single ? r.rows[0] : r.rows, error: null };
@@ -73,39 +78,57 @@ async function executeChain(state: ReturnType<typeof buildChain>): Promise<Query
       const whereStart = vals.length + 1;
       const whereClause = state._where.map((w, i) => `"${w.col}" ${w.op} $${whereStart + i}`).join(' AND ');
       const allVals = [...vals, ...state._where.map((w) => w.val)];
-      const q = `UPDATE ${_table} SET ${setClause} WHERE ${whereClause}`;
-      await client.query(q, allVals);
-      return { data: null, error: null };
+
+      const q = `UPDATE ${_table} SET ${setClause} WHERE ${whereClause}${returning}`;
+      const r = await client.query(q, allVals);
+      // Logic for returning data if requested
+      const data = returning ? (_single ? r.rows[0] : r.rows) : null;
+      return { data, error: null };
     }
     if (_delete) {
       const placeholders = state._where.map((_, i) => `$${i + 1}`);
       const whereClause = state._where.map((w) => `"${w.col}" ${w.op} ${placeholders.shift()}`).join(' AND ');
-      const q = `DELETE FROM ${_table} WHERE ${whereClause}`;
-      await client.query(q, state._where.map((w) => w.val));
-      return { data: null, error: null };
+      const q = `DELETE FROM ${_table} WHERE ${whereClause}${returning}`;
+      const r = await client.query(q, state._where.map((w) => w.val));
+      const data = returning ? (_single ? r.rows[0] : r.rows) : null;
+      return { data, error: null };
     }
     // SELECT
-    let selectClause = _select === '*' ? '*' : _select;
+    let selectClause = _select || '*';
     let fromClause = _table;
-    if (_table === 'products' && hasSelectJoin(_select)) {
-      fromClause = `${_table} LEFT JOIN brands ON ${_table}.brand_id = brands.id LEFT JOIN product_categories ON ${_table}.category_id = product_categories.id`;
-      selectClause = `${_table}.*, brands.name AS brand_name, product_categories.name AS category_name`;
+    if (_table === 'products' && hasSelectJoin(selectClause)) {
+      fromClause = `products p LEFT JOIN brands b ON p.brand_id = b.id LEFT JOIN product_categories c ON p.category_id = c.id`;
+      selectClause = `p.*, b.name AS brand_name, c.name AS category_name`;
     }
-    if (_table === 'product_ingredients' && _select.includes('ingredients:')) {
+    if (_table === 'product_ingredients' && selectClause.includes('ingredients:')) {
       fromClause = `product_ingredients LEFT JOIN ingredients ON product_ingredients.ingredient_id = ingredients.id`;
       selectClause = 'ingredients.*';
     }
+    // Rules -> Products -> Brands/Categories Join support
+    if (_table === 'rules' && selectClause.includes('products:product_id')) {
+      fromClause = `rules r LEFT JOIN products p ON r.product_id = p.id LEFT JOIN brands b ON p.brand_id = b.id LEFT JOIN product_categories c ON p.category_id = c.id`;
+      selectClause = `r.confidence_score, r.explanation, p.*, b.name as brand_name, c.name as category_name`;
+    }
+
     const whereClause = state._where.length
       ? ' WHERE ' + state._where.map((w, i) => `"${w.col}" ${w.op} $${i + 1}`).join(' AND ')
       : '';
+    // Fix potential ambiguity in ORDER BY when joining
+    const orderCol = state._orderBy ? state._orderBy.col : 'id';
+    // If joining products, assume order by is on products table
+    let orderTablePrefix = '';
+    if (_table === 'products' && hasSelectJoin(selectClause)) orderTablePrefix = 'p.';
+    if (_table === 'rules') orderTablePrefix = 'r.';
+
     const orderClause = state._orderBy
-      ? ` ORDER BY "${state._orderBy.col}" ${state._orderBy.asc ? 'ASC' : 'DESC'}`
+      ? ` ORDER BY ${orderTablePrefix}"${state._orderBy.col}" ${state._orderBy.asc ? 'ASC' : 'DESC'}`
       : '';
     const limitClause = _single ? ' LIMIT 1' : '';
     const q = `SELECT ${selectClause} FROM ${fromClause}${whereClause}${orderClause}${limitClause}`;
     const r = await client.query(q, state._where.map((w) => w.val));
     let data = _single ? r.rows[0] ?? null : r.rows;
-    if (_table === 'products' && hasSelectJoin(_select)) {
+
+    if (_table === 'products' && hasSelectJoin(selectClause)) {
       const rows = Array.isArray(data) ? data : data ? [data] : [];
       const mapped = rows.map((row: Record<string, unknown>) => ({
         ...row,
@@ -117,6 +140,24 @@ async function executeChain(state: ReturnType<typeof buildChain>): Promise<Query
     if (_table === 'product_ingredients' && Array.isArray(data)) {
       data = data.map((row: Record<string, unknown>) => ({ ingredients: row }));
     }
+    if (_table === 'rules' && selectClause.includes('products:product_id')) {
+      const rows = Array.isArray(data) ? data : data ? [data] : [];
+      const mapped = rows.map((row: Record<string, unknown>) => {
+        const { confidence_score, explanation, ...productData } = row;
+        const brands = productData.brand_name != null ? { name: productData.brand_name } : null;
+        const product_categories = productData.category_name != null ? { name: productData.category_name } : null;
+        return {
+          confidence_score,
+          explanation,
+          products: {
+            ...productData,
+            brands,
+            product_categories
+          }
+        };
+      });
+      data = _single ? mapped[0] ?? null : mapped;
+    }
     return { data, error: null };
   } catch (err) {
     return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
@@ -126,13 +167,18 @@ async function executeChain(state: ReturnType<typeof buildChain>): Promise<Query
 }
 
 function makeChain(state: ReturnType<typeof buildChain>): Chain {
-  const promise = executeChain(state);
+  let promise: Promise<QueryResult> | null = null;
+  const getPromise = () => {
+    if (!promise) promise = executeChain(state);
+    return promise;
+  };
+
   return {
     then(onFulfilled?: (value: QueryResult) => unknown, onRejected?: (reason: unknown) => unknown): Promise<QueryResult> {
-      return promise.then(onFulfilled, onRejected) as Promise<QueryResult>;
+      return getPromise().then(onFulfilled, onRejected) as Promise<QueryResult>;
     },
     catch(onRejected?: (reason: unknown) => unknown): Promise<QueryResult> {
-      return promise.catch(onRejected) as Promise<QueryResult>;
+      return getPromise().catch(onRejected) as Promise<QueryResult>;
     },
   };
 }
