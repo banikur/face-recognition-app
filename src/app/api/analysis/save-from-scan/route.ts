@@ -1,43 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAnalysisLog, getAllProducts } from '@/../../data/models';
-import type { SkinScores } from '@/lib/cnnSkinClassifier';
+import { createAnalysisLog, getProductsByRulesForCondition } from '@/../../data/models';
 
-// Dot product 6D: skin scores × product weights (CNN labels)
-function calculateScore(
-  scores: SkinScores,
-  weights: { w_acne: number; w_blackheads: number; w_clear_skin: number; w_dark_spots: number; w_puffy_eyes: number; w_wrinkles: number }
-): number {
-  const s = (k: keyof SkinScores) => (scores[k] ?? 0) / 100;
-  return (
-    s('acne') * weights.w_acne +
-    s('blackheads') * weights.w_blackheads +
-    s('clear_skin') * weights.w_clear_skin +
-    s('dark_spots') * weights.w_dark_spots +
-    s('puffy_eyes') * weights.w_puffy_eyes +
-    s('wrinkles') * weights.w_wrinkles
-  );
-}
+type SkinScores = {
+  acne: number;
+  blackheads: number;
+  clear_skin: number;
+  dark_spots: number;
+  puffy_eyes: number;
+  wrinkles: number;
+};
 
-async function getRecommendations(scores: SkinScores) {
-  const products = await getAllProducts();
-  const scored = products.map(p => ({
-    ...p,
-    score: calculateScore(scores, {
-      w_acne: p.w_acne,
-      w_blackheads: p.w_blackheads,
-      w_clear_skin: p.w_clear_skin,
-      w_dark_spots: p.w_dark_spots,
-      w_puffy_eyes: p.w_puffy_eyes,
-      w_wrinkles: p.w_wrinkles
-    })
-  }));
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, 3);
-}
-
+// Determine dominant condition ensuring type safety
 function getDominantCondition(scores: SkinScores): string {
-  const entries = (['acne', 'blackheads', 'clear_skin', 'dark_spots', 'puffy_eyes', 'wrinkles'] as const)
-    .map(k => [k, scores[k] ?? 0] as const);
+  const entries: [string, number][] = [
+    ['acne', scores.acne || 0],
+    ['blackheads', scores.blackheads || 0],
+    ['clear_skin', scores.clear_skin || 0],
+    ['dark_spots', scores.dark_spots || 0],
+    ['puffy_eyes', scores.puffy_eyes || 0],
+    ['wrinkles', scores.wrinkles || 0]
+  ];
   entries.sort((a, b) => b[1] - a[1]);
   return entries[0][0];
 }
@@ -45,13 +27,28 @@ function getDominantCondition(scores: SkinScores): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { scores, skinType } = body as { scores: SkinScores; skinType?: string };
+    const { scores } = body as { scores: SkinScores };
 
-    if (!scores) return NextResponse.json({ error: 'Missing scores' }, { status: 400 });
+    if (!scores) {
+      return NextResponse.json({ error: 'Missing scores' }, { status: 400 });
+    }
 
+    // Determine dominant condition
     const dominant_condition = getDominantCondition(scores);
-    const recommendations = await getRecommendations(scores);
+
+    // Get recommendations from rules table
+    const recommendations = await getProductsByRulesForCondition(dominant_condition, 3);
     const recommended_product_ids = recommendations.map(p => p.id).join(',');
+
+    // Create analysis log
+    // Note: Scores from frontend are 0-100, database expects 0-1 (if we follow previous pattern)
+    // checking previous file content, it was dividing by 100.
+    // Let's keep it consistent: store as float 0-1? Or 0-100?
+    // The previous code divided by 100 on lines 61-66.
+    // The main route (api/analysis/route.ts) takes raw scores.
+    // Let's check models.ts interface... AnalysisLog scores are just numbers.
+    // But usually normalized 0-1 is better for analysis.
+    // However, if the frontend sends 0-100, let's normalize to 0-1 to be safe/standard.
 
     const logId = await createAnalysisLog({
       user_name: 'Guest',
@@ -71,14 +68,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       id: logId,
       dominant_condition,
-      skinType: skinType ?? dominant_condition,
+      skinType: dominant_condition,
       recommendations: recommendations.map(p => ({
         id: p.id,
         name: p.name,
-        brand: p.brand_name ?? null,
+        brand: p.brand_name || null,
         description: p.description,
         image_url: p.image_url,
-        score: p.score
+        confidence_score: p.confidence_score,
+        explanation: p.explanation || null
       }))
     }, { status: 201 });
   } catch (error) {
