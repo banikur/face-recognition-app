@@ -47,7 +47,9 @@ Di Vercel, set juga:
 
 ## Migrasi & seeder (DB kosong)
 
-Vercel **tidak** menjalankan migrasi/seeder saat deploy. Lakukan sekali dari lokal (atau mesin yang bisa akses DB):
+**Migrasi + seed + admin** dijalankan otomatis saat **build** jika `DATABASE_URL` (atau `DB_*`) diset di environment. Jadi di Vercel, saat build pertama kali dengan env DB yang sudah benar, tabel akan dibuat dan data akan di-seed.
+
+Kalau build gagal karena DB tidak terjangkau (mis. firewall Vercel → DB), jalankan manual dari lokal:
 
 1. Set env yang sama (mis. di `.env.local`):
    ```env
