@@ -38,7 +38,7 @@ async function getRecommendations(skinScores: {
 }
 
 function getDominantCondition(scores: Record<string, number>): string {
-  let maxLabel = CNN_LABELS[0];
+  let maxLabel: typeof CNN_LABELS[number] = CNN_LABELS[0];
   let maxVal = scores[maxLabel] ?? 0;
   for (const label of CNN_LABELS) {
     const v = scores[label] ?? 0;
