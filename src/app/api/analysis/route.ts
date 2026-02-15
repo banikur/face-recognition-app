@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAnalysisLog, getAllProducts } from '@/../../data/models';
-import { CNN_LABELS } from '@/lib/skinWeights';
+import { CNN_LABELS, type SkinWeightKey } from '@/lib/skinWeights';
 
 // Calculate dot product for recommendation scoring (6 CNN labels)
 function calculateScore(
@@ -38,7 +38,7 @@ async function getRecommendations(skinScores: {
 }
 
 function getDominantCondition(scores: Record<string, number>): string {
-  let maxLabel = CNN_LABELS[0];
+  let maxLabel: SkinWeightKey = CNN_LABELS[0];
   let maxVal = scores[maxLabel] ?? 0;
   for (const label of CNN_LABELS) {
     const v = scores[label] ?? 0;
