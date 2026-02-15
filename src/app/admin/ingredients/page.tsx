@@ -128,7 +128,7 @@ export default function IngredientsAdmin() {
                     className="w-full"
                     style={{ accentColor: color }}
                   />
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{(formData[key as keyof typeof formData] * 100).toFixed(0)}%</span>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{((formData[key as keyof typeof formData] as number) * 100).toFixed(0)}%</span>
                 </div>
               ))}
             </div>
