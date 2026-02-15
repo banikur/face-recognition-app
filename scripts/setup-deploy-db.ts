@@ -11,11 +11,15 @@ import { Pool } from 'pg';
 import { getDatabaseUrl } from '../config/deploy-db';
 
 config({ path: resolve(process.cwd(), '.env.local') });
+
+console.log('🔧 [setup:deploy] Memeriksa env...');
 const connectionString = getDatabaseUrl();
 if (!connectionString) {
-  console.error('❌ Set DATABASE_URL atau DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME di environment.');
-  process.exit(1);
+  console.log('⚠️ [setup:deploy] DATABASE_URL/DB_* tidak diset. Lewati migrasi (jalankan data/full-setup.sql manual).');
+  process.exit(0);
 }
+
+console.log('🔧 [setup:deploy] Menghubungkan DB & menjalankan migrasi + seed...');
 process.env.DATABASE_URL = connectionString;
 const pool = new Pool({ connectionString });
 
@@ -161,15 +165,14 @@ async function runSeedAdmin() {
 }
 
 async function main() {
-  console.log('🔧 Setup database deploy (migrasi + seeder + admin)...\n');
   try {
     await runMigration();
     await runSeed();
     await runSeedAdmin();
-    console.log('\n✅ Setup deploy database selesai.');
+    console.log('✅ [setup:deploy] Migrasi + seed selesai.');
   } catch (err) {
-    console.error('❌ Error:', err);
-    process.exit(1);
+    console.error('⚠️ [setup:deploy] Gagal (DB unreachable?):', err instanceof Error ? err.message : err);
+    console.log('   Jalankan data/full-setup.sql manual di DB, lalu redeploy.');
   } finally {
     await pool.end();
   }
