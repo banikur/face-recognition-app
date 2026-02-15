@@ -1,5 +1,5 @@
-import TopBar from '@/components/TopBar';
 import ModelLoader from '@/components/ModelLoader';
+import AppShell from '@/components/AppShell';
 import './globals.css';
 import type { Metadata } from 'next';
 
@@ -20,12 +20,7 @@ export default function RootLayout({
       </head>
       <body className="compact vh-full">
         <ModelLoader>
-          <div className="vh-full bg-gray-50">
-            <TopBar />
-            <main className="h-[calc(100vh-56px)] h-[calc(100dvh-56px)]">
-              {children}
-            </main>
-          </div>
+          <AppShell>{children}</AppShell>
         </ModelLoader>
       </body>
     </html>

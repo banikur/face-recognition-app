@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/simple-auth';
+import AdminSidebar from '@/components/AdminSidebar';
 
 export default async function AdminLayout({
   children,
@@ -56,108 +56,14 @@ export default async function AdminLayout({
 
   return (
     <div className="admin-root flex min-h-screen">
-      {/* Sidebar */}
-      <aside
-        className="w-56 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-10"
-        style={{ backgroundColor: 'var(--bg-sidebar)', borderRight: '1px solid var(--border-soft)' }}
-      >
-        {/* Logo/Brand */}
-        <div
-          className="h-14 flex items-center px-4"
-          style={{ borderBottom: '1px solid var(--border-soft)' }}
-        >
-          <div className="flex items-center gap-2">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: 'var(--gradient-metric)' }}
-            >
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-            <span className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
-              SkinLab Admin
-            </span>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-4 overflow-y-auto">
-          {/* Main Nav */}
-          <div className="space-y-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="admin-nav-item group"
-              >
-                <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={item.icon} />
-                </svg>
-                {item.name}
-              </Link>
-            ))}
-          </div>
-
-          {/* Master Data Section */}
-          <div>
-            <p className="px-3 text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
-              Master Data
-            </p>
-            <div className="space-y-1">
-              {masterDataItems.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className="admin-nav-item group"
-                >
-                  <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={item.icon} />
-                  </svg>
-                  {item.name}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Transactional Section */}
-          <div>
-            <p className="px-3 text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
-              Transactional
-            </p>
-            <div className="space-y-1">
-              {transactionalItems.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className="admin-nav-item group"
-                >
-                  <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={item.icon} />
-                  </svg>
-                  {item.name}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </nav>
-
-        {/* Footer */}
-        <div className="p-3" style={{ borderTop: '1px solid var(--border-soft)' }}>
-          <Link
-            href="/"
-            className="admin-nav-item"
-          >
-            <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-            </svg>
-            User Portal
-          </Link>
-        </div>
-      </aside>
+      <AdminSidebar
+        navItems={navItems}
+        masterDataItems={masterDataItems}
+        transactionalItems={transactionalItems}
+      />
 
       {/* Main Content */}
-      <div className="flex-1 ml-56 flex flex-col min-w-0">
+      <div className="flex-1 ml-60 flex flex-col min-w-0">
         {/* Gradient Accent Strip */}
         <div className="admin-header-accent" />
 

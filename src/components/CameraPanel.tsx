@@ -537,6 +537,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                 <video
                   ref={videoRef}
                   className="absolute inset-0 w-full h-full object-cover"
+                  style={{ transform: 'scaleX(-1)' }}
                   playsInline
                   muted
                   autoPlay
