@@ -1,19 +1,14 @@
 import Link from 'next/link';
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { auth } from '@/lib/auth';
+import { getSession } from '@/lib/simple-auth';
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@skinlab.com';
-
-  if (!session || !session.user || session.user.email !== adminEmail) {
-    redirect('/');
-  }
+  const user = await getSession();
+  if (!user) redirect('/login');
 
   const navItems = [
     {
@@ -185,12 +180,16 @@ export default async function AdminLayout({
 
           {/* User Info */}
           <div className="flex items-center gap-3">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium text-white"
-              style={{ background: 'var(--gradient-active)' }}
-            >
-              A
-            </div>
+            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{user.email}</span>
+            <form action="/api/logout" method="POST">
+              <button
+                type="submit"
+                className="text-sm font-medium px-3 py-1 rounded hover:opacity-80"
+                style={{ color: 'var(--primary)' }}
+              >
+                Keluar
+              </button>
+            </form>
           </div>
         </header>
 

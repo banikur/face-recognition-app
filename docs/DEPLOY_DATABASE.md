@@ -49,6 +49,10 @@ Di Vercel, set juga:
 
 **Migrasi + seed + admin** dijalankan otomatis saat **build** jika `DATABASE_URL` (atau `DB_*`) diset di environment. Jadi di Vercel, saat build pertama kali dengan env DB yang sudah benar, tabel akan dibuat dan data akan di-seed.
 
+**Atau jalankan SQL manual** (pgAdmin, DBeaver, Supabase SQL Editor):
+- Buka `data/full-setup.sql`
+- Execute seluruh file (migrasi + seed dalam satu file)
+
 Kalau build gagal karena DB tidak terjangkau (mis. firewall Vercel → DB), jalankan manual dari lokal:
 
 1. Set env yang sama (mis. di `.env.local`):

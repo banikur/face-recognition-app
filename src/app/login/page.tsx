@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -17,23 +16,19 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const { error } = await authClient.signIn.email(
-        {
-          email,
-          password,
-          callbackURL: "/admin",
-        },
-        {
-          onError: (ctx) => {
-            setError(ctx.error.message);
-          },
-        }
-      );
-      if (!error) {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
         router.push("/admin");
+      } else {
+        setError(data.error || "Gagal masuk");
       }
     } catch {
-      setError("Failed to sign in");
+      setError("Gagal masuk");
     } finally {
       setLoading(false);
     }

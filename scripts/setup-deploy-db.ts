@@ -143,25 +143,20 @@ async function runSeedAdmin() {
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@skinlab.com';
   const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
   console.log('👤 Membuat akun admin...');
+  const bcrypt = await import('bcryptjs');
+  const client = await pool.connect();
   try {
-    const { auth } = await import('../src/lib/auth');
-    const result = await auth.api.signUpEmail({
-      body: {
-        email: adminEmail,
-        password: adminPassword,
-        name: 'Admin',
-      },
-    });
-    if (result.user) {
-      console.log('   Admin dibuat:', adminEmail);
-    }
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('already exists') || msg.includes('duplicate') || msg.includes('unique')) {
-      console.log('   Admin sudah ada, dilewati.');
-    } else {
-      console.warn('   ⚠️ Admin gagal (bisa buat manual nanti):', msg);
-    }
+    const hash = await bcrypt.hash(adminPassword, 10);
+    await client.query(
+      `INSERT INTO admin_users (email, password_hash) VALUES ($1, $2)
+       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+      [adminEmail.toLowerCase(), hash]
+    );
+    console.log('   Admin dibuat:', adminEmail);
+  } catch (err) {
+    console.warn('   ⚠️ Admin gagal:', err);
+  } finally {
+    client.release();
   }
 }
 

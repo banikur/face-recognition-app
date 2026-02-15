@@ -8,7 +8,7 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith("/admin")) {
     try {
       // Fetch session from API to avoid importing database in middleware (Edge runtime)
-      // verify the session using the better-auth API endpoint
+      // verify session via API
       const response = await fetch(`${request.nextUrl.origin}/api/auth/session`, {
         headers: {
           cookie: request.headers.get("cookie") || "",
@@ -16,7 +16,8 @@ export async function middleware(request: NextRequest) {
       });
       const session = await response.json();
 
-      if (!session) {
+      const data = session as { user?: { email: string } } | null;
+      if (!data?.user) {
         const loginUrl = new URL("/login", request.url);
         loginUrl.searchParams.set("callbackUrl", pathname);
         return NextResponse.redirect(loginUrl);

@@ -1,44 +1,41 @@
 /**
- * Create admin user using better-auth API
- * This ensures password is hashed correctly by better-auth
+ * Buat admin user di tabel admin_users.
+ * Password di-hash dengan bcrypt.
  */
 
-import { auth } from '../src/lib/auth';
+import { config } from 'dotenv';
+import { resolve } from 'path';
+import { Pool } from 'pg';
+import * as bcrypt from 'bcryptjs';
+import { getDatabaseUrl } from '../config/deploy-db';
+
+config({ path: resolve(process.cwd(), '.env.local') });
 
 async function createAdmin() {
-    try {
-        console.log('Creating admin user with better-auth...');
+  const email = process.env.ADMIN_EMAIL || 'admin@skinlab.com';
+  const password = process.env.ADMIN_PASSWORD || 'admin123';
+  const url = getDatabaseUrl();
 
-        // Get admin credentials from environment variables (REQUIRED)
-        const adminEmail = process.env.ADMIN_EMAIL;
-        const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!url) {
+    console.error('❌ Set DATABASE_URL atau DB_* di env.');
+    process.exit(1);
+  }
 
-        if (!adminEmail || !adminPassword) {
-            throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD environment variables are required. Set them in .env.local or Vercel environment variables.');
-        }
-
-        // Use better-auth's signUp method to create user with properly hashed password
-        const result = await auth.api.signUpEmail({
-            body: {
-                email: adminEmail,
-                password: adminPassword,
-                name: 'Admin',
-            },
-        });
-
-        console.log('✅ Admin user created successfully!');
-        console.log(`Email: ${adminEmail}`);
-        console.log('Password: [set via ADMIN_PASSWORD env var]');
-        if (result.user) {
-            console.log('User ID:', result.user.id);
-        }
-    } catch (error: any) {
-        if (error.message?.includes('already exists')) {
-            console.log('⚠️  Admin user already exists');
-        } else {
-            console.error('❌ Error creating admin:', error.message);
-        }
-    }
+  const pool = new Pool({ connectionString: url });
+  try {
+    const hash = await bcrypt.hash(password, 10);
+    await pool.query(
+      `INSERT INTO admin_users (email, password_hash) VALUES ($1, $2)
+       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+      [email.toLowerCase(), hash]
+    );
+    console.log('✅ Admin dibuat:', email);
+  } catch (e) {
+    console.error('❌ Error:', e);
+    process.exit(1);
+  } finally {
+    await pool.end();
+  }
 }
 
 createAdmin();
