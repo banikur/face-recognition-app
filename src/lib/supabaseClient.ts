@@ -15,32 +15,26 @@ if (typeof window === 'undefined' && !process.env.NEXT_PUBLIC_SUPABASE_URL && !p
   }
 }
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { getDatabaseUrl } from '../../config/deploy-db';
 import { createPgSupabaseAdapter } from './db-pg-supabase-adapter';
 
-/** Pakai PostgreSQL langsung bila DATABASE_URL (atau DB_*) diset (mis. di Vercel) */
-const databaseUrl = typeof window === 'undefined' ? getDatabaseUrl() : undefined;
-const useDirectPg = !!databaseUrl;
-if (useDirectPg && typeof window === 'undefined' && !process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = databaseUrl;
+// FORCE DIRECT PG CONNECTION
+// User provided connection string:
+const HARDCODED_DB_URL = 'postgresql://creativo:Admin1234%25@115.124.72.218:9999/ai_testing_db';
+
+if (typeof window === 'undefined' && !process.env.DATABASE_URL) {
+  // Check config first
+  const { getDatabaseUrl } = require('../../config/deploy-db');
+  const configuredUrl = getDatabaseUrl();
+
+  if (configuredUrl) {
+    process.env.DATABASE_URL = configuredUrl;
+  } else {
+    // Fallback to hardcoded URL if env/config missing
+    console.log('Using hardcoded DB URL');
+    process.env.DATABASE_URL = HARDCODED_DB_URL;
+  }
 }
 
-/**
- * Client untuk akses data:
- * - Jika DATABASE_URL / DB_* diset (Vercel/deploy): pakai PostgreSQL (pg adapter).
- * - Jika tidak: pakai Supabase (NEXT_PUBLIC_SUPABASE_URL + anon key).
- */
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!useDirectPg && (!supabaseUrl || !supabaseAnonKey)) {
-  throw new Error(
-    'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. Set in .env.local or set DATABASE_URL for deploy.'
-  );
-}
-
-export const supabase: SupabaseClient = useDirectPg
-  ? (createPgSupabaseAdapter() as unknown as SupabaseClient)
-  : createClient(supabaseUrl!, supabaseAnonKey!);
+// Export adapter as supabase client
+// We cast as 'any' to bypass SupabaseClient type check since we are replacing it
+export const supabase = createPgSupabaseAdapter() as any;

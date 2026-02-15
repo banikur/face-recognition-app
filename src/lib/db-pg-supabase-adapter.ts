@@ -1,15 +1,16 @@
 /**
- * Adapter Supabase-like untuk PostgreSQL (pg).
- * Dipakai ketika DATABASE_URL diset (deploy) agar aplikasi tidak perlu Supabase.
+ * PostgreSQL Adapter (pg) compatible with Supabase API.
+ * Uses DATABASE_URL for connection.
  */
 
 import { Pool } from 'pg';
 
 let pool: Pool | null = null;
+const HARDCODED_DB_URL = 'postgresql://creativo:Admin1234%25@115.124.72.218:9999/ai_testing_db';
 
 export function getPgPool(): Pool {
   if (!pool) {
-    const url = process.env.DATABASE_URL;
+    const url = process.env.DATABASE_URL || HARDCODED_DB_URL;
     if (!url) throw new Error('DATABASE_URL is required for pg adapter');
     pool = new Pool({ connectionString: url });
   }
@@ -28,6 +29,7 @@ function buildChain(pool: Pool, table: string): {
   _select: string | null;
   _where: { col: string; op: string; val: unknown }[];
   _orderBy: { col: string; asc: boolean } | null;
+  _limit: number | null;
   _single: boolean;
   _insert: Record<string, unknown> | null;
   _update: Record<string, unknown> | null;
@@ -39,6 +41,7 @@ function buildChain(pool: Pool, table: string): {
     _select: null,
     _where: [],
     _orderBy: null,
+    _limit: null,
     _single: false,
     _insert: null,
     _update: null,
@@ -107,7 +110,7 @@ async function executeChain(state: ReturnType<typeof buildChain>): Promise<Query
     // Rules -> Products -> Brands/Categories Join support
     if (_table === 'rules' && selectClause.includes('products:product_id')) {
       fromClause = `rules r LEFT JOIN products p ON r.product_id = p.id LEFT JOIN brands b ON p.brand_id = b.id LEFT JOIN product_categories c ON p.category_id = c.id`;
-      selectClause = `r.confidence_score, r.explanation, p.*, b.name as brand_name, c.name as category_name`;
+      selectClause = `r.confidence_score, p.*, b.name as brand_name, c.name as category_name`;
     }
 
     const whereClause = state._where.length
@@ -123,7 +126,7 @@ async function executeChain(state: ReturnType<typeof buildChain>): Promise<Query
     const orderClause = state._orderBy
       ? ` ORDER BY ${orderTablePrefix}"${state._orderBy.col}" ${state._orderBy.asc ? 'ASC' : 'DESC'}`
       : '';
-    const limitClause = _single ? ' LIMIT 1' : '';
+    const limitClause = _single ? ' LIMIT 1' : (state._limit ? ` LIMIT ${state._limit}` : '');
     const q = `SELECT ${selectClause} FROM ${fromClause}${whereClause}${orderClause}${limitClause}`;
     const r = await client.query(q, state._where.map((w) => w.val));
     let data = _single ? r.rows[0] ?? null : r.rows;
@@ -208,6 +211,10 @@ function createBuilder(pool: Pool, table: string) {
   };
   chain.single = () => {
     state._single = true;
+    return chain;
+  };
+  chain.limit = (n: number) => {
+    state._limit = n;
     return chain;
   };
   chain.insert = (obj: Record<string, unknown>) => {
