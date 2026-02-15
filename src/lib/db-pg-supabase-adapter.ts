@@ -139,7 +139,7 @@ function makeChain(state: ReturnType<typeof buildChain>): Chain {
 
 function createBuilder(pool: Pool, table: string) {
   const state = buildChain(pool, table);
-  const chain: Chain & Record<string, unknown> = makeChain(state);
+  const chain = makeChain(state) as Chain & Record<string, unknown>;
   chain.select = (cols?: string) => {
     state._select = cols ?? '*';
     return chain;
