@@ -1,0 +1,263 @@
+@startuml UseCase_Actual
+!theme plain
+title Use Case Diagram (berdasarkan route/endpoint aktual)
+left to right direction
+actor "User" as U
+actor "Admin" as A
+rectangle "Face Recognition App" {
+  rectangle "Scan & Rekomendasi\n(dot product, bukan rules)" {
+    (Scan wajah & dapat rekomendasi) as UC1
+    (Lihat daftar produk) as UC2
+    (Lihat rekomendasi by condition) as UC3
+  }
+  rectangle "Auth" {
+    (Login admin) as UC4
+    (Logout) as UC5
+  }
+  rectangle "Admin CRUD (5)\nBrands, Categories, Ingredients,\nRecommendations, Products" {
+    (Kelola Brands) as UC6
+    (Kelola Categories) as UC7
+    (Kelola Ingredients) as UC8
+    (Kelola Recommendations) as UC9
+    (Kelola Products) as UC10
+  }
+  rectangle "Admin Reports" {
+    (Lihat Reports) as UC12
+    (Export CSV/XLSX/JSON/PDF) as UC13
+    (Lihat Dashboard) as UC14
+  }
+}
+U --> UC1
+U --> UC2
+U --> UC3
+A --> UC4
+A --> UC5
+A --> UC6
+A --> UC7
+A --> UC8
+A --> UC9
+A --> UC10
+A --> UC12
+A --> UC13
+A --> UC14
+@enduml
+
+@startuml Activity_ScanWajah
+title Activity: Scan wajah & dapat rekomendasi
+|User|
+start
+:Buka /;
+|#LightBlue|CameraPanel|
+:getUserMedia / pilih upload;
+:User capture atau upload;
+:analyzeSkin(video/image);
+|skinAnalyzer|
+:captureFrame();
+:detectFacePresenceWithCNN();
+if (wajah terdeteksi?) then (ya)
+  :classifySkin(imageData);
+  :probabilitiesToScores();
+  :return AnalysisResult;
+else (tidak)
+  :return faceDetected: false;
+  stop
+endif
+|page.tsx|
+:handleCapture(result);
+:POST /api/analysis/save-from-scan;
+|save-from-scan route|
+if (scores ada?) then (tidak)
+  :400 Missing scores;
+  stop
+else (ya)
+  :getDominantCondition(scores);
+  :getRecommendations(scores);
+  :getAllProducts();
+  :calculateScore per produk, sort, slice(0,3);
+  :createAnalysisLog(...);
+  :201 JSON id, dominant_condition, recommendations;
+endif
+|page.tsx|
+:setRecommendations(data);
+:ResultPanel + RecommendationCard render;
+stop
+@enduml
+
+@startuml Sequence_SaveFromScan
+title Sequence: Scan -> Save from scan -> Response
+actor User
+participant "page.tsx\nHome" as Page
+participant "CameraPanel" as Cam
+participant "skinAnalyzer" as SA
+participant "faceDetection" as FD
+participant "cnnSkinClassifier" as CNN
+participant "save-from-scan\nroute" as API
+participant "models" as M
+participant "Supabase" as DB
+
+User -> Page: buka /
+Page -> Cam: mount
+User -> Cam: capture/upload
+Cam -> SA: analyzeSkin(video)
+SA -> SA: captureFrame()
+SA -> FD: detectFaces(video)
+FD --> SA: face result
+SA -> CNN: classifySkin(imageData)
+CNN --> SA: CNNPrediction
+SA --> Cam: AnalysisResult
+Cam --> Page: onCapture(result)
+Page -> API: POST save-from-scan { scores, skinType }
+API -> API: getDominantCondition(scores)
+API -> M: getAllProducts()
+M -> DB: from('products').select()
+DB --> M: products
+M --> API: products
+API -> API: getRecommendations (calculateScore, sort, slice 3)
+API -> M: createAnalysisLog(...)
+M -> DB: from('analysis_logs').insert()
+DB --> M: id
+M --> API: logId
+API --> Page: 201 { id, dominant_condition, recommendations }
+Page -> User: tampil ResultPanel + RecommendationCard
+@enduml
+
+@startuml Activity_AdminCRUD
+title Activity: Admin CRUD generik (Brands, Categories, Ingredients, Recommendations)
+|User|
+start
+:Buka /admin/xxx;
+|#LightBlue|page.tsx|
+:useEffect: getXxxAction();
+|actions.ts|
+|models.ts|
+:getAllXxx (Supabase select);
+:Data tampil di tabel;
+|User|
+:User klik Add / Edit;
+:User isi form;
+:handleSubmit;
+|page.tsx|
+if (editing?) then (ya)
+  :updateXxxAction(id, formData);
+else (tidak)
+  :createXxxAction(formData);
+endif
+|actions.ts|
+:create/updateXxx (models);
+|models.ts|
+:.from('xxx').insert/update;
+:revalidatePath('/admin/xxx');
+|page.tsx|
+:fetchData();
+:getXxxAction();
+stop
+@enduml
+
+@startuml Activity_AdminProducts
+title Activity: Admin CRUD Products (dengan setProductIngredients)
+|User|
+start
+:Buka /admin/products;
+:getProductsAction, getBrandsAction, getCategoriesAction, getIngredientsAction;
+:Data tampil;
+:User klik Add Product / Edit;
+:User isi form (name, brand_id, category_id, ingredient_ids);
+:handleSubmit;
+if (editingProduct?) then (ya)
+  :updateProductAction(id, { ...formData, ingredient_ids });
+else (tidak)
+  :createProductAction({ ...formData, ingredient_ids });
+endif
+|models.ts|
+:createProduct / updateProduct;
+:.from('products').insert/update;
+:setProductIngredients(productId, ingredient_ids);
+:delete product_ingredients lama;
+:insert product_ingredients baru;
+:getIngredientById per id;
+:agregat w_acne..w_wrinkles;
+:UPDATE products SET w_acne..w_wrinkles;
+stop
+@enduml
+
+@startuml Class_DataLayer
+title Class Diagram (interfaces & data layer - data/models.ts)
+class Brand {
+  id: number
+  name: string
+  logo_url: string | null
+  created_at: string
+}
+class ProductCategory {
+  id: number
+  name: string
+  description: string | null
+  created_at: string
+}
+class Ingredient {
+  id: number
+  name: string
+  effect: string | null
+  w_acne .. w_wrinkles: number
+  created_at: string
+}
+class Recommendation {
+  id: number
+  condition: string
+  title: string
+  description: string | null
+  tips: string | null
+  created_at: string
+}
+class Product {
+  id: number
+  name: string
+  brand_id: number | null
+  category_id: number | null
+  description: string | null
+  image_url: string | null
+  w_acne .. w_wrinkles: number
+  created_at: string
+  brand_name?: string
+  category_name?: string
+}
+class ProductIngredient {
+  product_id: number
+  ingredient_id: number
+}
+class AnalysisLog {
+  id: number
+  user_name: string
+  user_email: string | null
+  user_phone: string | null
+  user_age: number
+  acne_score .. wrinkles_score: number
+  dominant_condition: string
+  recommended_product_ids: string
+  created_at: string
+}
+class Rule {
+  id: number
+  skin_type_id: number
+  product_id: number
+  confidence_score: number
+}
+Product "n" --> "1" Brand : brand_id
+Product "n" --> "1" ProductCategory : category_id
+Product "n" -- "n" Ingredient : product_ingredients
+Rule "n" --> "1" Recommendation : skin_type_id
+Rule "n" --> "1" Product : product_id
+
+note bottom of Rule
+  Tabel rules TIDAK dipakai
+  di save-from-scan / rekomendasi.
+  Rekomendasi = dot product
+  (skor × bobot produk dari ingredients).
+end note
+
+note bottom of Ingredient
+  Sumber bobot untuk Products.
+  setProductIngredients menghitung
+  w_acne..w_wrinkles dari agregat.
+end note
+@enduml

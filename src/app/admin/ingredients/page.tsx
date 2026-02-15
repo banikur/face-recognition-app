@@ -91,7 +91,7 @@ export default function IngredientsAdmin() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-xl font-semibold" style={{ color: 'var(--text-main)' }}>Ingredients</h1>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Bobot per kategori CNN (6)</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Bobot Ingredient untuk rekomendasi produk (berbasis Rule-Based Recommendation)</p>
         </div>
         <button onClick={() => { setFormData(defaultFormData); setEditingIngredient(null); setShowForm(true); }} className="admin-btn-primary">
           <span className="flex items-center gap-2">
@@ -128,7 +128,7 @@ export default function IngredientsAdmin() {
                     className="w-full"
                     style={{ accentColor: color }}
                   />
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{((formData[key as keyof typeof formData] as number) * 100).toFixed(0)}%</span>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{(formData[key as keyof typeof formData] * 100).toFixed(0)}%</span>
                 </div>
               ))}
             </div>

@@ -7,10 +7,10 @@ const envPath = resolve(process.cwd(), '.env.local');
 config({ path: envPath });
 
 // Now we can safely import models (which will import supabaseClient)
-import {
-  createSkinType,
-  createProduct,
-  createIngredient,
+import { 
+  createSkinType, 
+  createProduct, 
+  createIngredient, 
   createRule,
   createAnalysisLog
 } from './models';
@@ -83,12 +83,12 @@ async function injectData() {
 
   // Insert rules (map 6 conditions to products)
   const rules = [
-    { skin_type_id: skinTypeIds[0], product_id: productIds[3], confidence_score: 0.95, explanation: 'Best for acne prone skin' }, // acne -> Anti-Acne
-    { skin_type_id: skinTypeIds[1], product_id: productIds[0], confidence_score: 0.95, explanation: 'Controls oil and blackheads' }, // blackheads -> Oil Control
-    { skin_type_id: skinTypeIds[2], product_id: productIds[2], confidence_score: 0.95, explanation: 'Maintains skin balance' }, // clear_skin -> Balancing
-    { skin_type_id: skinTypeIds[3], product_id: productIds[4], confidence_score: 0.95, explanation: 'Targets dark spots' }, // dark_spots -> Brightening
-    { skin_type_id: skinTypeIds[4], product_id: productIds[1], confidence_score: 0.95, explanation: 'Hydrates puffy eyes' }, // puffy_eyes -> Hydrating
-    { skin_type_id: skinTypeIds[5], product_id: productIds[5], confidence_score: 0.95, explanation: 'Reduces wrinkles' }  // wrinkles -> Anti-Aging
+    { skin_type_id: skinTypeIds[0], product_id: productIds[3], confidence_score: 0.95 }, // acne -> Anti-Acne
+    { skin_type_id: skinTypeIds[1], product_id: productIds[0], confidence_score: 0.95 }, // blackheads -> Oil Control
+    { skin_type_id: skinTypeIds[2], product_id: productIds[2], confidence_score: 0.95 }, // clear_skin -> Balancing
+    { skin_type_id: skinTypeIds[3], product_id: productIds[4], confidence_score: 0.95 }, // dark_spots -> Brightening
+    { skin_type_id: skinTypeIds[4], product_id: productIds[1], confidence_score: 0.95 }, // puffy_eyes -> Hydrating
+    { skin_type_id: skinTypeIds[5], product_id: productIds[5], confidence_score: 0.95 }  // wrinkles -> Anti-Aging
   ];
 
   for (const rule of rules) {

@@ -1,15 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAnalysisLog, getProductsByRulesForCondition } from '@/../../data/models';
+import { createAnalysisLog, getAllProducts } from '@/../../data/models';
 import { CNN_LABELS } from '@/lib/skinWeights';
 
-// Get product recommendations based on rules table
-async function getRecommendations(dominantCondition: string) {
-  return await getProductsByRulesForCondition(dominantCondition, 3);
+// Calculate dot product for recommendation scoring (6 CNN labels)
+function calculateScore(
+  skinScores: { acne: number; blackheads: number; clear_skin: number; dark_spots: number; puffy_eyes: number; wrinkles: number },
+  productWeights: { w_acne: number; w_blackheads: number; w_clear_skin: number; w_dark_spots: number; w_puffy_eyes: number; w_wrinkles: number }
+): number {
+  return (
+    skinScores.acne * productWeights.w_acne +
+    skinScores.blackheads * productWeights.w_blackheads +
+    skinScores.clear_skin * productWeights.w_clear_skin +
+    skinScores.dark_spots * productWeights.w_dark_spots +
+    skinScores.puffy_eyes * productWeights.w_puffy_eyes +
+    skinScores.wrinkles * productWeights.w_wrinkles
+  );
 }
 
+async function getRecommendations(skinScores: {
+  acne: number; blackheads: number; clear_skin: number;
+  dark_spots: number; puffy_eyes: number; wrinkles: number;
+}) {
+  const products = await getAllProducts();
+  const scoredProducts = products.map(product => ({
+    ...product,
+    score: calculateScore(skinScores, {
+      w_acne: product.w_acne,
+      w_blackheads: product.w_blackheads,
+      w_clear_skin: product.w_clear_skin,
+      w_dark_spots: product.w_dark_spots,
+      w_puffy_eyes: product.w_puffy_eyes,
+      w_wrinkles: product.w_wrinkles
+    })
+  }));
+  scoredProducts.sort((a, b) => b.score - a.score);
+  return scoredProducts.slice(0, 3);
+}
 
 function getDominantCondition(scores: Record<string, number>): string {
-  let maxLabel: typeof CNN_LABELS[number] = CNN_LABELS[0];
+  let maxLabel = CNN_LABELS[0];
   let maxVal = scores[maxLabel] ?? 0;
   for (const label of CNN_LABELS) {
     const v = scores[label] ?? 0;
@@ -55,8 +84,8 @@ export async function POST(request: NextRequest) {
       wrinkles: wrinkles_score
     };
 
+    const recommendations = await getRecommendations(skinScores);
     const dominant_condition = getDominantCondition(skinScores);
-    const recommendations = await getRecommendations(dominant_condition);
     const recommended_product_ids = recommendations.map(p => p.id).join(',');
 
     const logId = await createAnalysisLog({
@@ -83,8 +112,7 @@ export async function POST(request: NextRequest) {
         brand: p.brand_name || null,
         description: p.description,
         image_url: p.image_url,
-        confidence_score: p.confidence_score,
-        explanation: p.explanation || null
+        score: p.score
       }))
     }, { status: 201 });
   } catch (error) {

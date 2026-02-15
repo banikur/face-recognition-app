@@ -25,8 +25,7 @@ export default function RulesAdmin() {
   const [formData, setFormData] = useState<Omit<Rule, 'id'>>({
     skin_type_id: 0,
     product_id: 0,
-    confidence_score: 0.0,
-    explanation: ''
+    confidence_score: 0.0
   });
 
   useEffect(() => {
@@ -50,14 +49,8 @@ export default function RulesAdmin() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
     const { name, value } = e.target;
-
-    if (name === 'explanation') {
-      setFormData({ ...formData, [name]: value });
-      return;
-    }
-
     setFormData({
       ...formData,
       [name]: name === 'confidence_score'
@@ -80,8 +73,7 @@ export default function RulesAdmin() {
       setFormData({
         skin_type_id: 0,
         product_id: 0,
-        confidence_score: 0.0,
-        explanation: ''
+        confidence_score: 0.0
       });
       setEditingRule(null);
       setShowForm(false);
@@ -96,8 +88,7 @@ export default function RulesAdmin() {
     setFormData({
       skin_type_id: rule.skin_type_id,
       product_id: rule.product_id,
-      confidence_score: rule.confidence_score,
-      explanation: rule.explanation || ''
+      confidence_score: rule.confidence_score
     });
     setShowForm(true);
   };
@@ -136,8 +127,7 @@ export default function RulesAdmin() {
             setFormData({
               skin_type_id: 0,
               product_id: 0,
-              confidence_score: 0.0,
-              explanation: ''
+              confidence_score: 0.0
             });
             setShowForm(true);
           }}
@@ -158,7 +148,7 @@ export default function RulesAdmin() {
             {editingRule ? 'Edit Rule' : 'New Rule'}
           </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label htmlFor="skin_type_id" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
                   Skin Type*
@@ -199,9 +189,6 @@ export default function RulesAdmin() {
                   ))}
                 </select>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="confidence_score" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
                   Confidence Score (0.0 - 1.0)*
@@ -219,22 +206,7 @@ export default function RulesAdmin() {
                   className="admin-input"
                 />
               </div>
-              <div>
-                <label htmlFor="explanation" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
-                  Explanation (Trivia)
-                </label>
-                <textarea
-                  id="explanation"
-                  name="explanation"
-                  rows={3}
-                  value={formData.explanation || ''}
-                  onChange={handleInputChange}
-                  className="admin-input"
-                  placeholder="Why is this product recommended?"
-                />
-              </div>
             </div>
-
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => setShowForm(false)} className="admin-btn-secondary">
                 Cancel
@@ -258,8 +230,7 @@ export default function RulesAdmin() {
               <tr>
                 <th>Skin Type</th>
                 <th>Product</th>
-                <th>Confidence</th>
-                <th>Explanation</th>
+                <th>Confidence Score</th>
                 <th className="text-right">Actions</th>
               </tr>
             </thead>
@@ -275,9 +246,6 @@ export default function RulesAdmin() {
                   <td>
                     <span style={{ color: 'var(--text-muted)' }}>{rule.confidence_score.toFixed(2)}</span>
                   </td>
-                  <td>
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{rule.explanation ? (rule.explanation.substring(0, 50) + (rule.explanation.length > 50 ? '...' : '')) : '-'}</span>
-                  </td>
                   <td className="text-right">
                     <button onClick={() => handleEdit(rule)} className="text-sm font-medium mr-3" style={{ color: 'var(--primary)' }}>
                       Edit
@@ -290,7 +258,7 @@ export default function RulesAdmin() {
               ))}
               {rules.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>No rules found</td>
+                  <td colSpan={4} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>No rules found</td>
                 </tr>
               )}
             </tbody>
