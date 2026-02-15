@@ -87,7 +87,6 @@ async function executeChain(state: ReturnType<typeof buildChain>): Promise<Query
     // SELECT
     let selectClause = _select === '*' ? '*' : _select;
     let fromClause = _table;
-    const params: unknown[] = [];
     if (_table === 'products' && hasSelectJoin(_select)) {
       fromClause = `${_table} LEFT JOIN brands ON ${_table}.brand_id = brands.id LEFT JOIN product_categories ON ${_table}.category_id = product_categories.id`;
       selectClause = `${_table}.*, brands.name AS brand_name, product_categories.name AS category_name`;
@@ -129,11 +128,11 @@ async function executeChain(state: ReturnType<typeof buildChain>): Promise<Query
 function makeChain(state: ReturnType<typeof buildChain>): Chain {
   const promise = executeChain(state);
   return {
-    then(onFulfilled?: (value: QueryResult) => unknown, onRejected?: (reason: unknown) => unknown) {
-      return promise.then(onFulfilled, onRejected);
+    then(onFulfilled?: (value: QueryResult) => unknown, onRejected?: (reason: unknown) => unknown): Promise<QueryResult> {
+      return promise.then(onFulfilled, onRejected) as Promise<QueryResult>;
     },
-    catch(onRejected?: (reason: unknown) => unknown) {
-      return promise.catch(onRejected);
+    catch(onRejected?: (reason: unknown) => unknown): Promise<QueryResult> {
+      return promise.catch(onRejected) as Promise<QueryResult>;
     },
   };
 }
