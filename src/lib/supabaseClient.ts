@@ -16,6 +16,7 @@ if (typeof window === 'undefined' && !process.env.NEXT_PUBLIC_SUPABASE_URL && !p
 }
 
 import { createPgSupabaseAdapter } from './db-pg-supabase-adapter';
+import { getDatabaseUrl } from '../../config/deploy-db';
 
 // FORCE DIRECT PG CONNECTION
 // User provided connection string:
@@ -23,7 +24,6 @@ const HARDCODED_DB_URL = 'postgresql://creativo:Admin1234%25@115.124.72.218:9999
 
 if (typeof window === 'undefined' && !process.env.DATABASE_URL) {
   // Check config first
-  const { getDatabaseUrl } = require('../../config/deploy-db');
   const configuredUrl = getDatabaseUrl();
 
   if (configuredUrl) {
@@ -37,4 +37,5 @@ if (typeof window === 'undefined' && !process.env.DATABASE_URL) {
 
 // Export adapter as supabase client
 // We cast as 'any' to bypass SupabaseClient type check since we are replacing it
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const supabase = createPgSupabaseAdapter() as any;

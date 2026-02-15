@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     // Calculate statistics
     const conditionCounts: Record<string, number> = {};
     logs.forEach(log => {
-      conditionCounts[log.dominant_condition] = 
+      conditionCounts[log.dominant_condition] =
         (conditionCounts[log.dominant_condition] || 0) + 1;
     });
 
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    return new NextResponse(Buffer.concat(chunks), {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="analysis-report-${Date.now()}.pdf"`

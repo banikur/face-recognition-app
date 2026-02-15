@@ -55,7 +55,7 @@ function hasSelectJoin(select: string): boolean {
 }
 
 async function executeChain(state: ReturnType<typeof buildChain>): Promise<QueryResult> {
-  const { _table, _select, _where, _single, _insert, _update, _delete, _pool } = state;
+  const { _table, _select, _single, _insert, _update, _delete, _pool } = state;
   const client = await _pool.connect();
   try {
     // Helper to determine RETURNING clause
@@ -117,7 +117,6 @@ async function executeChain(state: ReturnType<typeof buildChain>): Promise<Query
       ? ' WHERE ' + state._where.map((w, i) => `"${w.col}" ${w.op} $${i + 1}`).join(' AND ')
       : '';
     // Fix potential ambiguity in ORDER BY when joining
-    const orderCol = state._orderBy ? state._orderBy.col : 'id';
     // If joining products, assume order by is on products table
     let orderTablePrefix = '';
     if (_table === 'products' && hasSelectJoin(selectClause)) orderTablePrefix = 'p.';

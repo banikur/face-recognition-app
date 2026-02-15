@@ -24,6 +24,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploadLoading, setUploadLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [faceBox, setFaceBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [uploadImageLoaded, setUploadImageLoaded] = useState(false);
   const [guidanceStatus, setGuidanceStatus] = useState<'searching' | 'too-far' | 'too-close' | 'not-centered' | 'aligned'>('searching');
@@ -317,7 +318,6 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
         animationFrameId.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cameraReady, mode]);
 
   // Detect face in uploaded image when loaded
@@ -498,10 +498,6 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   };
 
   const statusColor = getStatusColor();
-  // Glow opacity based on alignment and confidence (0.3 to 0.8)
-  const glowOpacity = guidanceStatus === 'aligned'
-    ? Math.min(0.8, 0.4 + (faceConfidence * 0.4))
-    : 0.3;
 
   return (
     <section className="flex h-full max-h-[60vh] lg:max-h-full flex-col rounded-xl border border-[#E5E7EB] bg-white p-2 sm:p-4 min-h-0 overflow-hidden">
