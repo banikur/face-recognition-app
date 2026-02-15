@@ -14,7 +14,9 @@
     "check-seed": "npx tsx data/check-seed.ts",
     "create-admin": "npx tsx scripts/create-admin.ts",
     "train-model": "npx tsx scripts/train-skin-model.ts",
-    "train-fast": "npx tsx scripts/train-fast.ts"
+    "train-fast": "npx tsx scripts/train-fast.ts",
+    "setup:deploy": "npx tsx scripts/setup-deploy-db.ts",
+    "postinstall": "node -e \"if (process.env.RUN_SETUP_DEPLOY === '1') { require('child_process').execSync('npx tsx scripts/setup-deploy-db.ts', { stdio: 'inherit', cwd: process.cwd() }); }\""
   },
   "dependencies": {
     "@mediapipe/face_detection": "^0.4.1646425229",

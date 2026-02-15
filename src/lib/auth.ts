@@ -1,13 +1,11 @@
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { Pool } from "pg";
+import { getDatabaseUrl } from "../../config/deploy-db";
 
-// Better-auth with Supabase PostgreSQL
-// Note: better-auth requires a PostgreSQL connection string (server-side only)
-// Get it from Supabase: Project Settings > Database > Connection string (URI)
-// Format: postgresql://postgres:[password]@[host]:[port]/postgres
-
-const databaseUrl = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
+// Better-auth butuh PostgreSQL connection string (server-side only).
+// Vercel: set DATABASE_URL atau DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME di Environment Variables.
+const databaseUrl = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL || getDatabaseUrl();
 
 if (!databaseUrl && process.env.NODE_ENV === 'production') {
   console.warn('Warning: DATABASE_URL not set. Authentication may not work in production.');

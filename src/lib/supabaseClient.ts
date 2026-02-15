@@ -1,6 +1,5 @@
 // Load environment variables for Node.js scripts (tsx, etc.)
-// Next.js automatically loads .env.local, but tsx doesn't
-if (typeof window === 'undefined' && !process.env.NEXT_PUBLIC_SUPABASE_URL) {
+if (typeof window === 'undefined' && !process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.DATABASE_URL) {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const dotenv = require('dotenv');
@@ -11,37 +10,37 @@ if (typeof window === 'undefined' && !process.env.NEXT_PUBLIC_SUPABASE_URL) {
     if (result.error) {
       console.warn('Warning: Could not load .env.local:', result.error.message);
     }
-  } catch (error) {
-    // dotenv might not be available, that's okay for Next.js runtime
-    console.warn('Warning: Could not load dotenv:', error);
+  } catch {
+    // dotenv might not be available
   }
 }
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { getDatabaseUrl } from '../../config/deploy-db';
+import { createPgSupabaseAdapter } from './db-pg-supabase-adapter';
+
+/** Pakai PostgreSQL langsung bila DATABASE_URL (atau DB_*) diset (mis. di Vercel) */
+const databaseUrl = typeof window === 'undefined' ? getDatabaseUrl() : undefined;
+const useDirectPg = !!databaseUrl;
+if (useDirectPg && typeof window === 'undefined' && !process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = databaseUrl;
+}
 
 /**
- * Public Supabase client
- * - Safe for browser & client components
- * - Uses anon key only
- * - Fails fast if env vars are missing
+ * Client untuk akses data:
+ * - Jika DATABASE_URL / DB_* diset (Vercel/deploy): pakai PostgreSQL (pg adapter).
+ * - Jika tidak: pakai Supabase (NEXT_PUBLIC_SUPABASE_URL + anon key).
  */
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl) {
+if (!useDirectPg && (!supabaseUrl || !supabaseAnonKey)) {
   throw new Error(
-    'Missing NEXT_PUBLIC_SUPABASE_URL. Set it in .env.local and Vercel env.'
+    'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. Set in .env.local or set DATABASE_URL for deploy.'
   );
 }
 
-if (!supabaseAnonKey) {
-  throw new Error(
-    'Missing NEXT_PUBLIC_SUPABASE_ANON_KEY. Set it in .env.local and Vercel env.'
-  );
-}
-
-export const supabase: SupabaseClient = createClient(
-  supabaseUrl,
-  supabaseAnonKey
-);
+export const supabase: SupabaseClient = useDirectPg
+  ? (createPgSupabaseAdapter() as unknown as SupabaseClient)
+  : createClient(supabaseUrl!, supabaseAnonKey!);
