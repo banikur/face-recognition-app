@@ -87,7 +87,8 @@ async function executeChain(state: ReturnType<typeof buildChain>): Promise<Query
     // SELECT
     let selectClause = _select === '*' ? '*' : _select;
     let fromClause = _table;
-    if (_table === 'products' && hasSelectJoin(_select)) {
+    // Untuk products selalu JOIN brand & category agar brand_name & category_name tersedia
+    if (_table === 'products') {
       fromClause = `${_table} LEFT JOIN brands ON ${_table}.brand_id = brands.id LEFT JOIN product_categories ON ${_table}.category_id = product_categories.id`;
       selectClause = `${_table}.*, brands.name AS brand_name, product_categories.name AS category_name`;
     }
@@ -105,13 +106,19 @@ async function executeChain(state: ReturnType<typeof buildChain>): Promise<Query
     const q = `SELECT ${selectClause} FROM ${fromClause}${whereClause}${orderClause}${limitClause}`;
     const r = await client.query(q, state._where.map((w) => w.val));
     let data = _single ? r.rows[0] ?? null : r.rows;
-    if (_table === 'products' && hasSelectJoin(_select)) {
+    if (_table === 'products') {
       const rows = Array.isArray(data) ? data : data ? [data] : [];
-      const mapped = rows.map((row: Record<string, unknown>) => ({
-        ...row,
-        brands: row.brand_name != null ? { name: row.brand_name } : null,
-        product_categories: row.category_name != null ? { name: row.category_name } : null,
-      }));
+      const mapped = rows.map((row: Record<string, unknown>) => {
+        const brandName = row.brand_name != null ? String(row.brand_name) : null;
+        const categoryName = row.category_name != null ? String(row.category_name) : null;
+        return {
+          ...row,
+          brand_name: brandName ?? undefined,
+          category_name: categoryName ?? undefined,
+          brands: brandName != null ? { name: brandName } : null,
+          product_categories: categoryName != null ? { name: categoryName } : null,
+        };
+      });
       data = _single ? mapped[0] ?? null : mapped;
     }
     if (_table === 'product_ingredients' && Array.isArray(data)) {
