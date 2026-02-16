@@ -15,8 +15,6 @@ export async function GET() {
     // Enrich products with simple `brand` and `ingredients` fields
     const products = await Promise.all(
       rawProducts.map(async (p: DbProduct) => {
-        const base: any = p as any;
-
         // Derive ingredients from related ingredient records
         const ingredientRecords = await getProductIngredients(p.id);
         const ingredientNames = ingredientRecords
@@ -26,15 +24,14 @@ export async function GET() {
         const ingredients =
           ingredientNames.length > 0
             ? ingredientNames.join(', ')
-            : (base.ingredients as string | undefined) || '';
+            : ((p as unknown as { ingredients?: string }).ingredients ?? '');
 
         const brand =
-          p.brand_name ||
-          (base.brand as string | undefined) ||
-          '';
+          p.brand_name ??
+          ((p as unknown as { brand?: string }).brand ?? '');
 
         return {
-          ...base,
+          ...p,
           brand,
           ingredients
         };
