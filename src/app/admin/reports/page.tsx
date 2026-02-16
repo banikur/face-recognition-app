@@ -50,13 +50,13 @@ export default function ReportsAdmin() {
     value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   const getProductName = (idString: string) => {
-    if (!idString) return 'None';
+    if (!idString) return ['None'];
     const ids = idString.split(',').map(s => parseInt(s.trim(), 10));
     const productNames = ids.map(id => {
       const product = products.find(p => Number(p.id) === id);
       return product ? product.name : `Produk #${id} (tidak ditemukan)`;
     });
-    return productNames.join(', ');
+    return productNames;
   };
 
   const generateMostRecommendedReport = () => {
@@ -270,7 +270,13 @@ export default function ReportsAdmin() {
                       </span>
                     </td>
                     <td>
-                      <span className="truncate max-w-xs block">{getProductName(log.recommended_product_ids)}</span>
+                      <div className="flex flex-col gap-1 max-w-xs">
+                        {getProductName(log.recommended_product_ids).map((name) => (
+                          <span key={name} className="block">
+                            {name}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                     <td>{log.user_name || 'Guest'}</td>
                   </tr>
