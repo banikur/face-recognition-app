@@ -133,13 +133,17 @@ async function executeChain(state: ReturnType<typeof buildChain>): Promise<Query
 }
 
 function makeChain(state: ReturnType<typeof buildChain>): Chain {
-  const promise = executeChain(state);
+  // Eksekusi ditunda sampai .then() / .catch() dipanggil
+  const getPromise = () => executeChain(state);
   return {
-    then(onFulfilled?: (value: QueryResult) => unknown, onRejected?: (reason: unknown) => unknown): Promise<QueryResult> {
-      return promise.then(onFulfilled, onRejected) as Promise<QueryResult>;
+    then(
+      onFulfilled?: (value: QueryResult) => unknown,
+      onRejected?: (reason: unknown) => unknown
+    ): Promise<QueryResult> {
+      return getPromise().then(onFulfilled, onRejected) as Promise<QueryResult>;
     },
     catch(onRejected?: (reason: unknown) => unknown): Promise<QueryResult> {
-      return promise.catch(onRejected) as Promise<QueryResult>;
+      return getPromise().catch(onRejected) as Promise<QueryResult>;
     },
   };
 }

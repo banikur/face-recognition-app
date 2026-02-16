@@ -4,6 +4,8 @@ import path from 'path';
 
 const DATASET_DIR = path.join(process.cwd(), 'public', 'dataset');
 
+const isDisabled = () => process.env.NODE_ENV === 'production';
+
 // Ensure dataset directories exist
 async function ensureDirectories() {
     const dirs = ['oily', 'dry', 'normal', 'acne', 'unlabeled'];
@@ -15,6 +17,10 @@ async function ensureDirectories() {
 
 // GET - List dataset images
 export async function GET(request: NextRequest) {
+    if (isDisabled()) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     try {
         await ensureDirectories();
 
@@ -41,6 +47,10 @@ export async function GET(request: NextRequest) {
 
 // POST - Save captured image
 export async function POST(request: NextRequest) {
+    if (isDisabled()) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     try {
         await ensureDirectories();
 
@@ -86,6 +96,10 @@ export async function POST(request: NextRequest) {
 
 // PATCH - Move image to labeled category
 export async function PATCH(request: NextRequest) {
+    if (isDisabled()) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     try {
         const body = await request.json();
         const { filename, newCategory } = body;
