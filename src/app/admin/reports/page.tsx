@@ -51,9 +51,9 @@ export default function ReportsAdmin() {
 
   const getProductName = (idString: string) => {
     if (!idString) return 'None';
-    const ids = idString.split(',').map(s => parseInt(s.trim()));
+    const ids = idString.split(',').map(s => parseInt(s.trim(), 10));
     const productNames = ids.map(id => {
-      const product = products.find(p => p.id === id);
+      const product = products.find(p => Number(p.id) === id);
       return product ? product.name : `Produk #${id} (tidak ditemukan)`;
     });
     return productNames.join(', ');
@@ -77,7 +77,7 @@ export default function ReportsAdmin() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([productId, count]) => ({
-        product: products.find(p => p.id === parseInt(productId))?.name || `Produk #${productId} (tidak ditemukan)`,
+        product: products.find(p => Number(p.id) === Number(productId))?.name || `Produk #${productId} (tidak ditemukan)`,
         count
       }));
   };
