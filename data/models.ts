@@ -54,7 +54,9 @@ export interface Product {
   w_puffy_eyes: number;
   w_wrinkles: number;
   created_at: string;
+  // denormalized / computed fields for convenience
   brand_name?: string;
+  brand_logo_url?: string | null;
   category_name?: string;
 }
 
@@ -446,7 +448,7 @@ export const getAllProducts = async (): Promise<Product[]> => {
     .from('products')
     .select(`
       *,
-      brands:brand_id(name),
+      brands:brand_id(name,logo_url),
       product_categories:category_id(name)
     `)
     .order('name');
@@ -459,12 +461,13 @@ export const getAllProducts = async (): Promise<Product[]> => {
   // Map the joined data to match the Product interface
   return (data || []).map((p: unknown) => {
     const product = p as Product & {
-      brands: { name: string } | null;
+      brands: { name: string; logo_url: string | null } | null;
       product_categories: { name: string } | null;
     };
     return {
       ...product,
       brand_name: product.brands?.name,
+      brand_logo_url: product.brands?.logo_url ?? null,
       category_name: product.product_categories?.name
     } as Product;
   });
@@ -475,7 +478,7 @@ export const getProductById = async (id: number): Promise<Product | undefined> =
     .from('products')
     .select(`
       *,
-      brands:brand_id(name),
+      brands:brand_id(name,logo_url),
       product_categories:category_id(name)
     `)
     .eq('id', id)
@@ -486,13 +489,14 @@ export const getProductById = async (id: number): Promise<Product | undefined> =
   }
 
   const product = data as Product & {
-    brands: { name: string } | null;
+    brands: { name: string; logo_url: string | null } | null;
     product_categories: { name: string } | null;
   };
 
   return {
     ...product,
     brand_name: product.brands?.name,
+    brand_logo_url: product.brands?.logo_url ?? null,
     category_name: product.product_categories?.name
   } as Product;
 };

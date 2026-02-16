@@ -1,9 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllProducts, createProduct, getAllBrands, getAllIngredients } from '@/../../data/models';
+import {
+  getAllProducts,
+  createProduct,
+  getAllBrands,
+  getAllIngredients,
+  getProductIngredients,
+  Product as DbProduct
+} from '@/../../data/models';
 
 export async function GET() {
   try {
-    const products = await getAllProducts();
+    const rawProducts = await getAllProducts();
+
+    // Enrich products with simple `brand` and `ingredients` fields
+    const products = await Promise.all(
+      rawProducts.map(async (p: DbProduct) => {
+        const base: any = p as any;
+
+        // Derive ingredients from related ingredient records
+        const ingredientRecords = await getProductIngredients(p.id);
+        const ingredientNames = ingredientRecords
+          .map((ing) => ing.name)
+          .filter((name): name is string => !!name && name.trim().length > 0);
+
+        const ingredients =
+          ingredientNames.length > 0
+            ? ingredientNames.join(', ')
+            : (base.ingredients as string | undefined) || '';
+
+        const brand =
+          p.brand_name ||
+          (base.brand as string | undefined) ||
+          '';
+
+        return {
+          ...base,
+          brand,
+          ingredients
+        };
+      })
+    );
+
     return NextResponse.json(products);
   } catch (error) {
     console.error('Error fetching products:', error);

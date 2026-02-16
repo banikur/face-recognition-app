@@ -8,7 +8,8 @@ interface Product {
     brand: string;
     description: string;
     ingredients: string;
-    image_url: string;
+    image_url: string | null;
+    brand_logo_url?: string | null;
     w_acne: number;
     w_blackheads: number;
     w_clear_skin: number;
@@ -89,9 +90,27 @@ export default function ProductsPage() {
                             key={product.id}
                             className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden hover:shadow-lg transition-shadow"
                         >
-                            {/* Product Image Placeholder */}
-                            <div className="h-48 bg-gradient-to-br from-[#3B82F6]/10 to-[#3B82F6]/5 flex items-center justify-center">
-                                <span className="text-5xl">🧴</span>
+                            {/* Product Image */}
+                            <div className="h-48 bg-[#F3F4F6] flex items-center justify-center relative overflow-hidden">
+                                {product.image_url ? (
+                                    <img
+                                        src={product.image_url}
+                                        alt={product.name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <span className="text-5xl">🧴</span>
+                                )}
+
+                                {product.brand_logo_url && (
+                                    <div className="absolute bottom-3 left-3 h-10 w-10 rounded-full bg-white border border-[#E5E7EB] flex items-center justify-center overflow-hidden">
+                                        <img
+                                            src={product.brand_logo_url}
+                                            alt={product.brand}
+                                            className="w-full h-full object-contain"
+                                        />
+                                    </div>
+                                )}
                             </div>
 
                             <div className="p-5">
