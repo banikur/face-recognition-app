@@ -46,12 +46,15 @@ export default function ReportsAdmin() {
     setFilter({ ...filter, [name]: value });
   };
 
+  const formatCondition = (value: string) =>
+    value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
   const getProductName = (idString: string) => {
     if (!idString) return 'None';
     const ids = idString.split(',').map(s => parseInt(s.trim()));
     const productNames = ids.map(id => {
       const product = products.find(p => p.id === id);
-      return product ? product.name : `Unknown (${id})`;
+      return product ? product.name : `Produk #${id} (tidak ditemukan)`;
     });
     return productNames.join(', ');
   };
@@ -74,7 +77,7 @@ export default function ReportsAdmin() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([productId, count]) => ({
-        product: products.find(p => p.id === parseInt(productId))?.name || `Unknown (${productId})`,
+        product: products.find(p => p.id === parseInt(productId))?.name || `Produk #${productId} (tidak ditemukan)`,
         count
       }));
   };
@@ -206,7 +209,9 @@ export default function ReportsAdmin() {
               return (
                 <div key={idx} className="space-y-1.5">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="font-medium capitalize" style={{ color: 'var(--text-main)' }}>{item.skinType}</span>
+                    <span className="font-medium" style={{ color: 'var(--text-main)' }}>
+                      {formatCondition(item.skinType)}
+                    </span>
                     <span style={{ color: 'var(--text-muted)' }}>{item.count} ({percentage}%)</span>
                   </div>
                   <div
