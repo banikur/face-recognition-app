@@ -1,0 +1,99 @@
+@startuml Use Case Diagram - Face Recognition Skincare App
+
+!define RECTANGLE class
+
+title Use Case Diagram - Face Recognition Based Skincare Recommendation System
+
+left to right direction
+
+actor "User" as User
+actor "Admin" as Admin
+
+rectangle "Face Recognition Skincare App" {
+  
+  ' User Use Cases
+  usecase "UC1: Capture Face Image" as UC1
+  usecase "UC2: Upload Face Image" as UC2
+  usecase "UC3: View Skin Analysis Results" as UC3
+  usecase "UC4: View Product Recommendations" as UC4
+  usecase "UC5: View Analysis History" as UC5
+  
+  ' Admin Use Cases
+  usecase "UC6: Login to Admin Dashboard" as UC6
+  usecase "UC7: Manage Products (CRUD)" as UC7
+  usecase "UC8: Manage Brands" as UC8
+  usecase "UC9: Manage Categories" as UC9
+  usecase "UC10: Manage Ingredients" as UC10
+  usecase "UC11: View Analysis Logs" as UC11
+  usecase "UC12: Filter Analysis Logs" as UC12
+  usecase "UC13: View Reports & Analytics" as UC13
+  usecase "UC14: Export Reports (Excel/PDF)" as UC14
+  usecase "UC15: Manage Recommendations" as UC15
+  usecase "UC16: Manage Rules" as UC16
+  
+  ' System Use Cases (Internal)
+  usecase "UC17: Detect Face (CNN)" as UC17
+  usecase "UC18: Classify Skin Condition (CNN)" as UC18
+  usecase "UC19: Calculate Product Weights" as UC19
+  usecase "UC20: Generate Recommendations" as UC20
+  usecase "UC21: Save Analysis Log" as UC21
+}
+
+' User associations
+User --> UC1 : uses
+User --> UC2 : uses
+User --> UC3 : <<includes>>
+User --> UC4 : <<includes>>
+User --> UC5 : uses
+
+' Admin associations
+Admin --> UC6 : uses
+Admin --> UC7 : uses
+Admin --> UC8 : uses
+Admin --> UC9 : uses
+Admin --> UC10 : uses
+Admin --> UC11 : uses
+Admin --> UC12 : uses
+Admin --> UC13 : uses
+Admin --> UC14 : uses
+Admin --> UC15 : uses
+Admin --> UC16 : uses
+
+' System internal relationships
+UC1 ..> UC17 : <<include>>
+UC2 ..> UC17 : <<include>>
+UC17 ..> UC18 : <<include>>
+UC18 ..> UC19 : <<include>>
+UC19 ..> UC20 : <<include>>
+UC20 ..> UC21 : <<include>>
+UC3 ..> UC18 : <<include>>
+UC4 ..> UC20 : <<include>>
+
+' Extend relationships
+UC3 <<extends>> UC1
+UC3 <<extends>> UC2
+UC4 <<extends>> UC3
+UC12 <<extends>> UC11
+UC14 <<extends>> UC13
+
+note right of UC17
+  CNN-based Face Detection
+  using MediaPipe + TensorFlow.js
+end note
+
+note right of UC18
+  CNN-based Skin Classification
+  Custom trained model
+  6 classes: acne, blackheads,
+  clear_skin, dark_spots,
+  puffy_eyes, wrinkles
+end note
+
+note right of UC20
+  Rule-based Recommendation
+  Dot product scoring
+  Top 3 products
+end note
+
+@enduml
+

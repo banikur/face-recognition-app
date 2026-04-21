@@ -1,0 +1,120 @@
+@startuml Activity Diagram - Skin Analysis Process
+
+title Activity Diagram - Skin Analysis and Recommendation Process
+
+start
+
+:User opens application;
+:Initialize Face Detection Model;
+:Initialize Skin Classification Model;
+
+partition "Input Selection" {
+  if (Input Mode?) then (Camera)
+    :Request camera permission;
+    if (Permission granted?) then (Yes)
+      :Start camera stream;
+      :Display live video feed;
+      :Detect face in real-time;
+      if (Face detected and aligned?) then (Yes)
+        :User clicks capture button;
+        :Capture frame from video;
+      else (No)
+        :Show guidance message;
+        stop
+      endif
+    else (No)
+      :Show error message;
+      stop
+    endif
+  else (Upload)
+    :User selects image file;
+    :Validate file (type, size);
+    if (File valid?) then (Yes)
+      :Load image;
+      :Detect face in image;
+      if (Face detected?) then (Yes)
+        :Extract face region;
+      else (No)
+        :Show "No face detected" error;
+        stop
+      endif
+    else (No)
+      :Show validation error;
+      stop
+    endif
+  endif
+}
+
+partition "Face Detection (CNN)" {
+  :Load MediaPipe Face Detector;
+  :Initialize TensorFlow.js backend;
+  if (Backend available?) then (WebGL)
+    :Use WebGL backend;
+  else (CPU)
+    :Use CPU backend;
+  endif
+  :Run face detection model;
+  :Get bounding box coordinates;
+  :Calculate confidence score;
+  if (Confidence > 0.2?) then (Yes)
+    :Face detected = true;
+  else (No)
+    :Face detected = false;
+    :Show error message;
+    stop
+  endif
+}
+
+partition "Image Preprocessing" {
+  :Extract face region from image;
+  :Resize to 128x128 pixels;
+  :Normalize pixel values (0-255 to -1 to 1);
+  :Add batch dimension;
+  :Prepare tensor for CNN;
+}
+
+partition "Skin Classification (CNN)" {
+  :Load CNN Skin Classifier model;
+  :Run forward pass through CNN;
+  :Get softmax probabilities;
+  :Find dominant class (argmax);
+  :Convert probabilities to scores (0-100%);
+  :Format label (e.g., "Clear Skin");
+}
+
+partition "Product Recommendation" {
+  :Fetch all products from database;
+  :For each product:
+    - Get product weights (w_oily, w_dry, w_normal, w_acne);
+    - Calculate dot product with skin scores;
+    - Store product with score;
+  :Sort products by score (descending);
+  :Select top 3 products;
+  :Determine dominant condition;
+}
+
+partition "Save Analysis Log" {
+  :Collect user information;
+  :Prepare analysis log data;
+  :Save to database;
+  :Get log ID;
+}
+
+partition "Display Results" {
+  :Show skin type label;
+  :Display skin condition scores;
+  :Show top 3 recommended products;
+  :Display product details;
+}
+
+stop
+
+note right
+  **CNN Models:**
+  - Face Detection: MediaPipe
+  - Skin Classification: Custom CNN
+  - Processing: Client-side (Browser)
+end note
+
+@enduml
+
