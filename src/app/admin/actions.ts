@@ -1,5 +1,89 @@
 'use server';
 
+import { getPgPool } from '@/lib/db-pg-supabase-adapter';
+import * as bcrypt from 'bcryptjs';
+import { revalidatePath as _revalidatePath } from 'next/cache';
+
+// ============================================
+// ADMIN ACCOUNTS ACTIONS
+// ============================================
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  created_at: string;
+}
+
+export async function getAdminUsersAction(): Promise<AdminUser[]> {
+  try {
+    const pool = getPgPool();
+    const r = await pool.query('SELECT id, email, created_at FROM admin_users ORDER BY created_at DESC');
+    return r.rows as AdminUser[];
+  } catch (error) {
+    console.error('Error fetching admin users:', error);
+    return [];
+  }
+}
+
+export async function createAdminUserAction(data: { email: string; password: string }) {
+  try {
+    if (!data.email || !data.password) {
+      return { success: false, error: 'Email dan password wajib diisi' };
+    }
+    if (data.password.length < 8) {
+      return { success: false, error: 'Password minimal 8 karakter' };
+    }
+    const pool = getPgPool();
+    const existing = await pool.query('SELECT id FROM admin_users WHERE email = $1', [data.email.toLowerCase().trim()]);
+    if (existing.rows.length > 0) {
+      return { success: false, error: 'Email sudah terdaftar' };
+    }
+    const hash = await bcrypt.hash(data.password, 10);
+    await pool.query(
+      'INSERT INTO admin_users (email, password_hash) VALUES ($1, $2)',
+      [data.email.toLowerCase().trim(), hash]
+    );
+    _revalidatePath('/admin/accounts');
+    return { success: true };
+  } catch (error) {
+    console.error('Error creating admin user:', error);
+    return { success: false, error: 'Gagal membuat akun admin' };
+  }
+}
+
+export async function updateAdminPasswordAction(id: number, data: { password: string }) {
+  try {
+    if (!data.password || data.password.length < 8) {
+      return { success: false, error: 'Password minimal 8 karakter' };
+    }
+    const pool = getPgPool();
+    const hash = await bcrypt.hash(data.password, 10);
+    await pool.query('UPDATE admin_users SET password_hash = $1 WHERE id = $2', [hash, id]);
+    _revalidatePath('/admin/accounts');
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating admin password:', error);
+    return { success: false, error: 'Gagal mengubah password' };
+  }
+}
+
+export async function deleteAdminUserAction(id: number) {
+  try {
+    const pool = getPgPool();
+    // Pastikan minimal 1 admin tersisa
+    const count = await pool.query('SELECT COUNT(*) FROM admin_users');
+    if (parseInt(count.rows[0].count) <= 1) {
+      return { success: false, error: 'Tidak dapat menghapus akun admin terakhir' };
+    }
+    await pool.query('DELETE FROM admin_users WHERE id = $1', [id]);
+    _revalidatePath('/admin/accounts');
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting admin user:', error);
+    return { success: false, error: 'Gagal menghapus akun admin' };
+  }
+}
+
 import {
     // Brands
     getAllBrands,

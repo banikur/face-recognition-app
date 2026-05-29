@@ -5,9 +5,11 @@ import TopBar from "@/components/TopBar";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isLogin = pathname === "/login";
 
-  if (isLogin) {
+  // These routes manage their own full-page layout
+  const isStandalone = pathname === "/" || pathname === "/login";
+
+  if (isStandalone) {
     return <>{children}</>;
   }
 
