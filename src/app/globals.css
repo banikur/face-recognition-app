@@ -1,4 +1,8 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
+
+/* Global: ensure html & body allow full-viewport containers */
+html, body { height: 100%; }
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
@@ -9,7 +13,7 @@
 }
 
 /* ============================================
-   ADMIN DESIGN SYSTEM - Cyan × Orange Theme
+   ADMIN DESIGN SYSTEM - Cyan Ã— Orange Theme
    ============================================ */
 
 @theme {
@@ -28,7 +32,7 @@
 }
 
 .admin-root {
-  /* === Color Palette (Cyan × Orange) === */
+  /* === Color Palette (Cyan Ã— Orange) === */
   --primary: #0EA5E9;
   --primary-dark: #0284C7;
   --primary-light: #22D3EE;
@@ -314,6 +318,13 @@ select.admin-input {
 
 /* === Animations === */
 @keyframes breathe {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.02); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.02);
+  }
 }

@@ -32,6 +32,79 @@ function getUserMediaFn(): ((c: MediaStreamConstraints) => Promise<MediaStream>)
     );
 }
 
+// ── Corner markers for the viewfinder ────────────────────────────────────────
+function ViewfinderBox({ active }: { active: boolean }) {
+  const C = active ? "#3B82F6" : "rgba(255,255,255,0.35)";
+  const cornerStyle = (pos: React.CSSProperties): React.CSSProperties => ({
+    position: "absolute",
+    width: 22,
+    height: 22,
+    borderColor: C,
+    ...pos,
+  });
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        pointerEvents: "none",
+      }}
+    >
+      {/* Box wrapper — 44% width, 3:4 aspect ratio, centered slightly above middle */}
+      <div
+        style={{
+          position: "relative",
+          width: "44%",
+          aspectRatio: "3/4",
+          marginTop: "-5%",
+        }}
+      >
+        {/* Faint outline */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            border: `1px solid ${active ? "rgba(59,130,246,0.25)" : "rgba(255,255,255,0.12)"}`,
+            borderRadius: 4,
+          }}
+        />
+
+        {/* Top-left corner */}
+        <div style={cornerStyle({ top: -1, left: -1, borderTop: `2.5px solid`, borderLeft: `2.5px solid`, borderTopLeftRadius: 5 })} />
+        {/* Top-right corner */}
+        <div style={cornerStyle({ top: -1, right: -1, borderTop: `2.5px solid`, borderRight: `2.5px solid`, borderTopRightRadius: 5 })} />
+        {/* Bottom-left corner */}
+        <div style={cornerStyle({ bottom: -1, left: -1, borderBottom: `2.5px solid`, borderLeft: `2.5px solid`, borderBottomLeftRadius: 5 })} />
+        {/* Bottom-right corner */}
+        <div style={cornerStyle({ bottom: -1, right: -1, borderBottom: `2.5px solid`, borderRight: `2.5px solid`, borderBottomRightRadius: 5 })} />
+
+        {/* Hint text below box */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: -30,
+            left: "50%",
+            transform: "translateX(-50%)",
+            whiteSpace: "nowrap",
+            fontSize: 11,
+            color: active ? "rgba(147,197,253,0.9)" : "rgba(255,255,255,0.4)",
+            backgroundColor: "rgba(0,0,0,0.45)",
+            padding: "2px 10px",
+            borderRadius: 20,
+          }}
+        >
+          Posisikan wajah di dalam bingkai
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -46,15 +119,15 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [processingState, setProcessingState] = useState<ProcessingState>("idle");
 
-  // ── Model warm-up ────────────────────────────────────────────────────────────
+  // ── Model warm-up on mount ────────────────────────────────────────────────
   useEffect(() => {
     Swal.fire({
       title: "Privacy & Data Usage",
       html: `<div style="text-align:left;line-height:1.6;font-size:14px;">
         <p>Website ini dibuat khusus untuk keperluan <b>demo Tugas Akhir</b>.</p>
-        <p>Sistem <b>tidak menyimpan foto, gambar wajah, atau data biometrik</b> pengguna.
+        <p style="margin-top:8px">Sistem <b>tidak menyimpan foto, gambar wajah, atau data biometrik</b> pengguna.
         Seluruh proses pengolahan wajah dilakukan <b>secara langsung di browser</b> (client-side).</p>
-        <p style="color:#6B7280;font-size:12px;">Dengan melanjutkan, Anda memahami bahwa aplikasi ini hanya digunakan untuk keperluan akademik.</p>
+        <p style="color:#6B7280;font-size:12px;margin-top:8px">Dengan melanjutkan, Anda memahami bahwa aplikasi ini hanya digunakan untuk keperluan akademik.</p>
       </div>`,
       icon: "info",
       confirmButtonText: "Saya Mengerti",
@@ -66,7 +139,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
     loadSkinModel().catch(() => {});
   }, []);
 
-  // ── Camera lifecycle ─────────────────────────────────────────────────────────
+  // ── Camera lifecycle ──────────────────────────────────────────────────────
   useEffect(() => {
     if (mode !== "camera") { stopStream(); return; }
     let cancelled = false;
@@ -129,7 +202,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
     streamRef.current = null;
   };
 
-  // ── Capture ──────────────────────────────────────────────────────────────────
+  // ── Capture ───────────────────────────────────────────────────────────────
   const handleCapture = useCallback(async () => {
     if (processingState !== "idle" || isAnalyzing) return;
 
@@ -174,7 +247,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
     }
   }, [mode, cameraReady, uploadImageLoaded, processingState, isAnalyzing, onCapture]);
 
-  // ── File upload ──────────────────────────────────────────────────────────────
+  // ── File upload ───────────────────────────────────────────────────────────
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -206,217 +279,297 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   const processingLabel =
     processingState === "detecting" ? "Mendeteksi wajah..." : "Menganalisis kulit...";
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
+  // The panel fills 100% of its parent's height via flex — no overflow.
   return (
     <div
-      className="flex flex-col h-full"
-      style={{ backgroundColor: "#1C1C1E" }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        backgroundColor: "#111113",
+        overflow: "hidden",
+      }}
     >
-      {/* ── Top bar: mode toggle + status ── */}
+      {/* ── Top toolbar: mode toggle + status ─────────────────────────────── */}
       <div
-        className="flex items-center gap-2 px-4 py-3 flex-shrink-0"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "8px 16px",
+          flexShrink: 0,
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
+        }}
       >
-        {/* Kamera button */}
+        {/* Kamera toggle */}
         <button
           onClick={() => { setMode("camera"); setUploadedImage(null); setError(null); }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition"
           style={{
-            backgroundColor: mode === "camera" ? "rgba(255,255,255,0.12)" : "transparent",
-            color: mode === "camera" ? "#F5F5F7" : "rgba(255,255,255,0.45)",
-            border: mode === "camera" ? "1px solid rgba(255,255,255,0.18)" : "1px solid transparent",
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+            cursor: "pointer", transition: "all 0.15s",
+            backgroundColor: mode === "camera" ? "rgba(255,255,255,0.11)" : "transparent",
+            color: mode === "camera" ? "#F5F5F7" : "rgba(255,255,255,0.4)",
+            border: mode === "camera" ? "1px solid rgba(255,255,255,0.16)" : "1px solid transparent",
           }}
         >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
           Kamera
         </button>
 
-        {/* Upload button */}
+        {/* Upload toggle */}
         <button
           onClick={() => { setMode("upload"); setError(null); }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition"
           style={{
-            backgroundColor: mode === "upload" ? "rgba(255,255,255,0.12)" : "transparent",
-            color: mode === "upload" ? "#F5F5F7" : "rgba(255,255,255,0.45)",
-            border: mode === "upload" ? "1px solid rgba(255,255,255,0.18)" : "1px solid transparent",
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+            cursor: "pointer", transition: "all 0.15s",
+            backgroundColor: mode === "upload" ? "rgba(255,255,255,0.11)" : "transparent",
+            color: mode === "upload" ? "#F5F5F7" : "rgba(255,255,255,0.4)",
+            border: mode === "upload" ? "1px solid rgba(255,255,255,0.16)" : "1px solid transparent",
           }}
         >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
           </svg>
           Upload
         </button>
 
-        {/* Camera status indicator */}
+        {/* Camera status */}
         {mode === "camera" && (
-          <div className="ml-auto flex items-center gap-1.5">
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
             <span
-              className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: cameraReady ? "#22C55E" : "#6B7280" }}
+              style={{
+                width: 7, height: 7, borderRadius: "50%",
+                backgroundColor: cameraReady ? "#22C55E" : "#6B7280",
+                display: "inline-block",
+                boxShadow: cameraReady ? "0 0 6px #22C55E" : "none",
+              }}
             />
-            <span className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>
-              {cameraReady ? "Kamera aktif" : "Memuat..."}
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+              {cameraReady ? "Kamera aktif" : "Memuat kamera..."}
             </span>
           </div>
         )}
       </div>
 
-      {/* ── Viewport ── */}
-      <div className="flex-1 relative flex flex-col items-center justify-center min-h-0 overflow-hidden">
-        {/* Video / image area — fills available space */}
-        <div className="relative w-full h-full">
+      {/* ── Viewport: fills all remaining space ───────────────────────────── */}
+      <div style={{ flex: 1, position: "relative", overflow: "hidden", minHeight: 0 }}>
 
-          {/* Camera mode */}
-          {mode === "camera" && (
-            <>
-              <video
-                ref={videoRef}
-                className="w-full h-full object-cover"
-                style={{ transform: "scaleX(-1)" }}
-                playsInline muted autoPlay
-              />
+        {/* ── CAMERA MODE ── */}
+        {mode === "camera" && (
+          <>
+            {/* Video fills entire viewport with cover */}
+            <video
+              ref={videoRef}
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                transform: "scaleX(-1)",
+              }}
+              playsInline
+              muted
+              autoPlay
+            />
 
-              {/* Face guide corners */}
-              {cameraReady && !isProcessing && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="relative" style={{ width: "55%", aspectRatio: "3/4" }}>
-                    {/* Top-left */}
-                    <div className="absolute top-0 left-0 w-7 h-7 border-t-2 border-l-2 rounded-tl" style={{ borderColor: "#3B82F6" }} />
-                    {/* Top-right */}
-                    <div className="absolute top-0 right-0 w-7 h-7 border-t-2 border-r-2 rounded-tr" style={{ borderColor: "#3B82F6" }} />
-                    {/* Bottom-left */}
-                    <div className="absolute bottom-0 left-0 w-7 h-7 border-b-2 border-l-2 rounded-bl" style={{ borderColor: "#3B82F6" }} />
-                    {/* Bottom-right */}
-                    <div className="absolute bottom-0 right-0 w-7 h-7 border-b-2 border-r-2 rounded-br" style={{ borderColor: "#3B82F6" }} />
-
-                    {/* Face detected label */}
-                    <div
-                      className="absolute top-[-28px] left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap"
-                      style={{ backgroundColor: "rgba(59,130,246,0.15)", color: "#60A5FA" }}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                      Wajah terdeteksi
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {!cameraReady && !error && (
-                <div className="absolute inset-0 flex items-center justify-center" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  <div className="text-center">
-                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white/60 mx-auto mb-3" />
-                    <p className="text-sm">Mengaktifkan kamera...</p>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Upload mode */}
-          {mode === "upload" && (
-            <>
-              {uploadedImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  ref={uploadedImageRef}
-                  src={uploadedImage}
-                  alt="Uploaded"
-                  className="w-full h-full object-contain"
-                  style={{ backgroundColor: "#111" }}
-                  onLoad={() => setUploadImageLoaded(true)}
-                />
-              ) : (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer transition"
-                  style={{ color: "rgba(255,255,255,0.35)" }}
-                >
-                  <svg className="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                  <p className="text-sm font-medium">Klik untuk upload gambar</p>
-                  <p className="text-xs mt-1 opacity-70">JPG/PNG, max 3MB</p>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Upload loading */}
-          {uploadLoading && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center z-30" style={{ backgroundColor: "rgba(0,0,0,0.7)" }}>
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-              <p className="mt-2 text-sm text-white/70">Memuat gambar...</p>
-            </div>
-          )}
-
-          {/* Error overlay */}
-          {error && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center z-30 p-6 text-center" style={{ backgroundColor: "rgba(0,0,0,0.85)" }}>
-              <svg className="w-10 h-10 mb-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-              </svg>
-              <p className="text-sm text-red-400 mb-4">{error}</p>
-              <button
-                onClick={() => { setError(null); setCameraReady(false); setMode("camera"); }}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white"
-                style={{ backgroundColor: "#3B82F6" }}
-              >
-                Coba Lagi
-              </button>
-            </div>
-          )}
-
-          {/* Processing overlay */}
-          {isProcessing && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center z-30" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
-              <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-              <p className="mt-3 text-sm font-medium text-white">{processingLabel}</p>
-            </div>
-          )}
-        </div>
-
-        {/* ── Bottom bar: hint + capture button ── */}
-        <div
-          className="w-full flex items-center justify-center gap-4 px-6 py-4 flex-shrink-0"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
-        >
-          <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-            Tekan untuk menganalisis
-          </span>
-
-          <button
-            disabled={captureDisabled}
-            onClick={handleCapture}
-            aria-label="Capture and analyze"
-            className="flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95 disabled:opacity-40"
-            style={{
-              width: 52,
-              height: 52,
-              backgroundColor: "rgba(255,255,255,0.08)",
-              border: "2px solid rgba(59,130,246,0.6)",
-            }}
-          >
-            {isProcessing ? (
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-            ) : (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8} style={{ color: "#60A5FA" }}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
+            {/* Viewfinder overlay — shown when camera is ready and not processing */}
+            {cameraReady && !isProcessing && (
+              <ViewfinderBox active={cameraReady} />
             )}
-          </button>
-        </div>
+
+            {/* Camera loading state */}
+            {!cameraReady && !error && (
+              <div style={{
+                position: "absolute", inset: 0, display: "flex",
+                flexDirection: "column", alignItems: "center", justifyContent: "center",
+                color: "rgba(255,255,255,0.4)",
+              }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: "50%",
+                  border: "2px solid rgba(255,255,255,0.15)", borderTop: "2px solid rgba(255,255,255,0.6)",
+                  animation: "spin 0.9s linear infinite", marginBottom: 12,
+                }} />
+                <p style={{ fontSize: 13 }}>Mengaktifkan kamera...</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── UPLOAD MODE ── */}
+        {mode === "upload" && (
+          <>
+            {uploadedImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                ref={uploadedImageRef}
+                src={uploadedImage}
+                alt="Uploaded"
+                style={{
+                  position: "absolute", inset: 0,
+                  width: "100%", height: "100%",
+                  objectFit: "contain",
+                  backgroundColor: "#111",
+                }}
+                onLoad={() => setUploadImageLoaded(true)}
+              />
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  position: "absolute", inset: 0, cursor: "pointer",
+                  display: "flex", flexDirection: "column",
+                  alignItems: "center", justifyContent: "center",
+                  color: "rgba(255,255,255,0.3)",
+                }}
+              >
+                <svg width="44" height="44" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} style={{ marginBottom: 12 }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <p style={{ fontSize: 13, fontWeight: 500 }}>Klik untuk upload gambar</p>
+                <p style={{ fontSize: 11, marginTop: 4, opacity: 0.6 }}>JPG/PNG, maks. 3MB</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Upload loading overlay */}
+        {uploadLoading && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 30,
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            backgroundColor: "rgba(0,0,0,0.7)",
+          }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: "50%",
+              border: "2px solid rgba(255,255,255,0.2)", borderTop: "2px solid #fff",
+              animation: "spin 0.9s linear infinite", marginBottom: 10,
+            }} />
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>Memuat gambar...</p>
+          </div>
+        )}
+
+        {/* Error overlay */}
+        {error && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 30,
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            backgroundColor: "rgba(0,0,0,0.87)", padding: 24, textAlign: "center",
+          }}>
+            <svg width="40" height="40" fill="none" stroke="#F87171" viewBox="0 0 24 24" strokeWidth={1.5} style={{ marginBottom: 12 }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <p style={{ fontSize: 13, color: "#F87171", marginBottom: 16 }}>{error}</p>
+            <button
+              onClick={() => { setError(null); setCameraReady(false); setMode("camera"); }}
+              style={{
+                padding: "8px 20px", borderRadius: 10, fontSize: 13, fontWeight: 500,
+                backgroundColor: "#3B82F6", color: "#fff", cursor: "pointer", border: "none",
+              }}
+            >
+              Coba Lagi
+            </button>
+          </div>
+        )}
+
+        {/* Processing overlay */}
+        {isProcessing && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 30,
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            backgroundColor: "rgba(0,0,0,0.60)",
+          }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: "50%",
+              border: "2px solid rgba(255,255,255,0.2)", borderTop: "2px solid #fff",
+              animation: "spin 0.9s linear infinite", marginBottom: 12,
+            }} />
+            <p style={{ fontSize: 13, fontWeight: 500, color: "#fff" }}>{processingLabel}</p>
+          </div>
+        )}
       </div>
 
-      {/* Hidden inputs */}
+      {/* ── Bottom capture bar — always visible, never pushes layout ─────── */}
+      <div
+        style={{
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 20,
+          padding: "12px 20px",
+          borderTop: "1px solid rgba(255,255,255,0.07)",
+          backgroundColor: "#111113",
+        }}
+      >
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
+          {mode === "camera" ? "Tekan untuk menganalisis" : "Pilih gambar lalu analisis"}
+        </span>
+
+        {/* Capture button */}
+        <button
+          disabled={captureDisabled}
+          onClick={handleCapture}
+          aria-label="Capture dan analisis"
+          style={{
+            width: 52, height: 52,
+            borderRadius: 14,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            backgroundColor: captureDisabled ? "rgba(255,255,255,0.05)" : "rgba(59,130,246,0.18)",
+            border: `2px solid ${captureDisabled ? "rgba(255,255,255,0.1)" : "rgba(59,130,246,0.7)"}`,
+            cursor: captureDisabled ? "not-allowed" : "pointer",
+            opacity: captureDisabled ? 0.45 : 1,
+            transition: "all 0.15s",
+            flexShrink: 0,
+          }}
+        >
+          {isProcessing ? (
+            <div style={{
+              width: 20, height: 20, borderRadius: "50%",
+              border: "2px solid rgba(255,255,255,0.2)", borderTop: "2px solid #fff",
+              animation: "spin 0.9s linear infinite",
+            }} />
+          ) : (
+            <svg width="24" height="24" fill="none" stroke="#60A5FA" viewBox="0 0 24 24" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          )}
+        </button>
+
+        {/* Upload trigger (upload mode only) */}
+        {mode === "upload" && (
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadLoading || isProcessing}
+            style={{
+              padding: "6px 14px", borderRadius: 8, fontSize: 11, fontWeight: 500,
+              backgroundColor: "rgba(255,255,255,0.07)",
+              color: "rgba(255,255,255,0.6)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              cursor: "pointer", flexShrink: 0,
+            }}
+          >
+            Pilih File
+          </button>
+        )}
+      </div>
+
+      {/* Spin keyframe injected once */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/png,image/jpeg"
-        className="hidden"
+        style={{ display: "none" }}
         onChange={handleFileChange}
         aria-label="Upload image"
         disabled={uploadLoading || isProcessing}
