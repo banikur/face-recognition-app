@@ -328,7 +328,7 @@ function TabDistribusi({ chartsData, total }: { chartsData: ChartsData; total: n
                     <Cell key={i} fill={CONDITION_COLORS[entry.key] || '#94A3B8'} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(v: number) => [`${v} analisis`, 'Jumlah']} />
+                <Tooltip formatter={(v: unknown) => [`${v} analisis`, 'Jumlah']} />
                 <Legend formatter={(v) => <span style={{ fontSize: 12 }}>{v}</span>} />
               </PieChart>
             </ResponsiveContainer>
@@ -399,7 +399,7 @@ function TabProduk({ chartsData }: { chartsData: ChartsData }) {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
               <YAxis type="category" dataKey="productName" tick={{ fontSize: 11 }} width={140} />
-              <Tooltip formatter={(v: number) => [`${v}x`, 'Direkomendasikan']} />
+              <Tooltip formatter={(v: unknown) => [`${v}x`, 'Direkomendasikan']} />
               <Bar dataKey="count" name="Frekuensi" radius={[0, 4, 4, 0]}>
                 {barData.map((_, i) => (
                   <Cell key={i} fill={`hsl(${200 + i * 14},75%,${52 - i * 3}%)`} />
