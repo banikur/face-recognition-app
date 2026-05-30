@@ -5,6 +5,7 @@ import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   LineChart, Line,
+  type PieLabelRenderProps,
 } from 'recharts';
 import { getAnalysisLogsAction, getProductsAction } from '@/app/admin/actions';
 import { AnalysisLog, Product } from '@/data/models';
@@ -295,13 +296,19 @@ function TabDistribusi({ chartsData, total }: { chartsData: ChartsData; total: n
   const barData = pivotAgeGroup(chartsData.ageGroupDistribution);
 
   const RADIAN = Math.PI / 180;
-  const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: Record<string, number>) => {
-    if (percent < 0.05) return null;
-    const r = innerRadius + (outerRadius - innerRadius) * 0.55;
+  const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: PieLabelRenderProps) => {
+    const _cx = Number(cx ?? 0);
+    const _cy = Number(cy ?? 0);
+    const _midAngle = Number(midAngle ?? 0);
+    const _innerRadius = Number(innerRadius ?? 0);
+    const _outerRadius = Number(outerRadius ?? 0);
+    const _percent = Number(percent ?? 0);
+    if (_percent < 0.05) return null;
+    const r = _innerRadius + (_outerRadius - _innerRadius) * 0.55;
     return (
-      <text x={cx + r * Math.cos(-midAngle * RADIAN)} y={cy + r * Math.sin(-midAngle * RADIAN)}
+      <text x={_cx + r * Math.cos(-_midAngle * RADIAN)} y={_cy + r * Math.sin(-_midAngle * RADIAN)}
             fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={600}>
-        {`${(percent * 100).toFixed(0)}%`}
+        {`${(_percent * 100).toFixed(0)}%`}
       </text>
     );
   };
