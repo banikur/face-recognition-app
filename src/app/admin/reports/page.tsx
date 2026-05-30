@@ -1,497 +1,589 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
-  getAnalysisLogsAction,
-  getProductsAction,
-  getSkinTypesAction
-} from '@/app/admin/actions';
-import { AnalysisLog, Product, SkinType } from '@/data/models';
+  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  LineChart, Line,
+} from 'recharts';
+import { getAnalysisLogsAction, getProductsAction } from '@/app/admin/actions';
+import { AnalysisLog, Product } from '@/data/models';
 
-// ---------- helpers ----------
-function exportToExcel(rows: ExportRow[], filename: string) {
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const CONDITION_COLORS: Record<string, string> = {
+  acne:       '#EF4444',
+  blackheads: '#6B7280',
+  clear_skin: '#10B981',
+  dark_spots: '#8B5CF6',
+  puffy_eyes: '#F59E0B',
+  wrinkles:   '#3B82F6',
+  unknown:    '#94A3B8',
+};
+
+const AGE_ORDER = ['<20', '20-35', '36-50', '>50', 'Tidak diketahui'];
+const CONDITIONS = ['acne', 'blackheads', 'clear_skin', 'dark_spots', 'puffy_eyes', 'wrinkles'];
+
+type Granularity = 'day' | 'week' | 'month';
+type Tab = 'histori' | 'distribusi' | 'produk' | 'tren';
+
+// ── Chart data types ──────────────────────────────────────────────────────────
+interface ConditionDistRow { condition: string; count: number; }
+interface AgeGroupRow      { ageGroup: string; condition: string; count: number; }
+interface TopProductRow    { productId: number; productName: string; count: number; }
+interface TrendRow         { date: string; condition: string; count: number; }
+
+interface ChartsData {
+  conditionDistribution:  ConditionDistRow[];
+  ageGroupDistribution:   AgeGroupRow[];
+  topRecommendedProducts: TopProductRow[];
+  conditionTrend:         TrendRow[];
+  meta: { totalLogs: number; granularity: string };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatCondition(v: string) {
+  return v.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function conditionBadgeClass(c: string) {
+  const map: Record<string, string> = {
+    acne: 'admin-badge admin-badge-acne',
+    blackheads: 'admin-badge admin-badge-oily',
+    clear_skin: 'admin-badge admin-badge-normal',
+    dark_spots: 'admin-badge admin-badge-dry',
+    puffy_eyes: 'admin-badge admin-badge-oily',
+    wrinkles:   'admin-badge admin-badge-dry',
+  };
+  return map[c] || 'admin-badge';
+}
+
+// Pivot ageGroupDistribution into [{ageGroup, acne, blackheads, ...}]
+function pivotAgeGroup(rows: AgeGroupRow[]) {
+  const map: Record<string, Record<string, number>> = {};
+  for (const r of rows) {
+    if (!map[r.ageGroup]) map[r.ageGroup] = {};
+    map[r.ageGroup][r.condition] = r.count;
+  }
+  return AGE_ORDER
+    .filter(g => map[g])
+    .map(g => ({ ageGroup: g, ...map[g] }));
+}
+
+// Pivot conditionTrend into [{date, acne, blackheads, ...}]
+function pivotTrend(rows: TrendRow[]) {
+  const map: Record<string, Record<string, number>> = {};
+  for (const r of rows) {
+    if (!map[r.date]) map[r.date] = {};
+    map[r.date][r.condition] = r.count;
+  }
+  return Object.entries(map)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, conds]) => ({ date, ...conds }));
+}
+
+// Export helpers (reuse existing pattern)
+function exportToExcel(rows: Record<string, unknown>[], filename: string) {
   import('xlsx').then((XLSX) => {
     const ws = XLSX.utils.json_to_sheet(rows);
-
-    // Column widths
-    ws['!cols'] = [
-      { wch: 20 }, // Date
-      { wch: 20 }, // Condition
-      { wch: 40 }, // Products
-      { wch: 20 }, // User
-    ];
-
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Analysis Logs');
+    XLSX.utils.book_append_sheet(wb, ws, 'Report');
     XLSX.writeFile(wb, filename);
   });
 }
 
-function exportToPDF(rows: ExportRow[], title: string) {
-  const html = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <title>${title}</title>
-      <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a2e; padding: 32px; }
-        h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; color: #6c63ff; }
-        .subtitle { font-size: 12px; color: #888; margin-bottom: 24px; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        thead tr { background: #6c63ff; color: white; }
-        th { padding: 10px 12px; text-align: left; font-weight: 600; }
-        tbody tr:nth-child(even) { background: #f5f5ff; }
-        td { padding: 8px 12px; border-bottom: 1px solid #e8e8f0; vertical-align: top; }
-        .badge {
-          display: inline-block;
-          padding: 2px 8px;
-          border-radius: 999px;
-          font-size: 11px;
-          font-weight: 600;
-          background: #ede9fe;
-          color: #6c63ff;
-        }
-        .footer { margin-top: 24px; font-size: 11px; color: #aaa; text-align: right; }
-        @media print {
-          body { padding: 16px; }
-          button { display: none !important; }
-        }
-      </style>
-    </head>
-    <body>
-      <h1>${title}</h1>
-      <p class="subtitle">Generated on ${new Date().toLocaleString()}</p>
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Condition</th>
-            <th>Recommended Products</th>
-            <th>User</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows
-            .map(
-              (r) => `
-            <tr>
-              <td>${r['Date']}</td>
-              <td><span class="badge">${r['Condition']}</span></td>
-              <td>${r['Recommended Products']}</td>
-              <td>${r['User']}</td>
-            </tr>`
-            )
-            .join('')}
-        </tbody>
-      </table>
-      <div class="footer">Total records: ${rows.length}</div>
-    </body>
-    </html>
-  `;
-
-  const win = window.open('', '_blank', 'width=900,height=650');
-  if (!win) {
-    alert('Please allow pop-ups for this site to export PDF.');
-    return;
-  }
-  win.document.write(html);
-  win.document.close();
-  win.onload = () => {
-    win.focus();
-    win.print();
-  };
+function exportToPDF(rows: Record<string, string>[], title: string, headers: string[]) {
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${title}</title>
+  <style>
+    body{font-family:Arial,sans-serif;padding:24px;color:#1a1a2e}
+    h1{font-size:18px;color:#6c63ff;margin-bottom:4px}
+    .sub{font-size:11px;color:#888;margin-bottom:20px}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th{background:#6c63ff;color:#fff;padding:8px 10px;text-align:left}
+    td{padding:7px 10px;border-bottom:1px solid #e8e8f0}
+    tr:nth-child(even){background:#f5f5ff}
+  </style></head><body>
+  <h1>${title}</h1>
+  <p class="sub">Digenerate: ${new Date().toLocaleString('id-ID')}</p>
+  <table>
+    <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r => `<tr>${headers.map(h => `<td>${r[h] ?? ''}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table>
+  </body></html>`;
+  const w = window.open('', '_blank', 'width=900,height=650');
+  if (!w) { alert('Izinkan pop-up untuk mengekspor PDF.'); return; }
+  w.document.write(html);
+  w.document.close();
+  w.onload = () => { w.focus(); w.print(); };
 }
 
-// ---------- types ----------
-interface ExportRow {
-  Date: string;
-  Condition: string;
-  'Recommended Products': string;
-  User: string;
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function LoadingSpinner() {
+  return (
+    <div className="flex items-center justify-center py-16">
+      <div className="w-7 h-7 rounded-full border-2 border-t-transparent animate-spin"
+           style={{ borderColor: 'var(--primary)', borderTopColor: 'transparent' }} />
+    </div>
+  );
 }
 
-// ---------- component ----------
-export default function ReportsAdmin() {
-  const [logs, setLogs] = useState<AnalysisLog[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [skinTypes, setSkinTypes] = useState<SkinType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState<'pdf' | 'excel' | null>(null);
-  const [filter, setFilter] = useState({
-    startDate: '',
-    endDate: '',
-    skinCondition: '',
-    productId: ''
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 gap-3">
+      <svg className="w-10 h-10" style={{ color: 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+      <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{text}</p>
+    </div>
+  );
+}
+
+// ── Tab 1: Histori Analisis ───────────────────────────────────────────────────
+
+function TabHistori({ logs, products }: { logs: AnalysisLog[]; products: Product[] }) {
+  const [filter, setFilter] = useState({ startDate: '', endDate: '', skinCondition: '', productId: '' });
+  const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
+
+  const productMap = Object.fromEntries(products.map(p => [String(p.id), p.name]));
+
+  const getProductNames = (ids: string) => {
+    if (!ids) return ['—'];
+    return ids.split(',').map(id => productMap[id.trim()] ?? `Produk #${id.trim()}`);
+  };
+
+  const filtered = logs.filter(log => {
+    const d = new Date(log.created_at);
+    if (filter.startDate && d < new Date(filter.startDate)) return false;
+    if (filter.endDate   && d > new Date(filter.endDate))   return false;
+    if (filter.skinCondition && log.dominant_condition !== filter.skinCondition) return false;
+    if (filter.productId && !log.recommended_product_ids?.split(',').includes(filter.productId)) return false;
+    return true;
   });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const buildRows = () => filtered.map(log => ({
+    Tanggal:    new Date(log.created_at).toLocaleDateString('id-ID'),
+    Nama:       log.user_name || 'Guest',
+    Usia:       String(log.user_age || '—'),
+    Kondisi:    formatCondition(log.dominant_condition || ''),
+    Rekomendasi: getProductNames(log.recommended_product_ids).join(', '),
+  }));
 
-  const fetchData = async () => {
-    try {
-      const [logsData, productsData, skinTypesData] = await Promise.all([
-        getAnalysisLogsAction(),
-        getProductsAction(),
-        getSkinTypesAction()
-      ]);
-      setLogs(logsData);
-      setProducts(productsData);
-      setSkinTypes(skinTypesData);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      setLoading(false);
-    }
-  };
-
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFilter({ ...filter, [name]: value });
-  };
-
-  const formatCondition = (value: string) =>
-    value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-
-  const getProductName = (idString: string) => {
-    if (!idString) return ['None'];
-    const ids = idString.split(',').map(s => parseInt(s.trim(), 10));
-    return ids.map(id => {
-      const product = products.find(p => Number(p.id) === id);
-      return product ? product.name : `Product #${id}`;
-    });
-  };
-
-  const generateMostRecommendedReport = () => {
-    const productCount: Record<string, number> = {};
-    logs.forEach(log => {
-      if (log.recommended_product_ids) {
-        const ids = log.recommended_product_ids.split(',');
-        ids.forEach(idStr => {
-          const id = parseInt(idStr.trim());
-          if (!isNaN(id)) {
-            productCount[id] = (productCount[id] || 0) + 1;
-          }
-        });
-      }
-    });
-
-    return Object.entries(productCount)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([productId, count]) => ({
-        product: products.find(p => Number(p.id) === Number(productId))?.name || `Product #${productId}`,
-        count
-      }));
-  };
-
-  const generateMostCommonSkinTypes = () => {
-    const skinTypeCount: Record<string, number> = {};
-    logs.forEach(log => {
-      const condition = log.dominant_condition || 'Unknown';
-      skinTypeCount[condition] = (skinTypeCount[condition] || 0) + 1;
-    });
-
-    return Object.entries(skinTypeCount)
-      .sort((a, b) => b[1] - a[1])
-      .map(([skinType, count]) => ({ skinType, count }));
-  };
-
-  const mostRecommendedProducts = generateMostRecommendedReport();
-  const mostCommonSkinTypes = generateMostCommonSkinTypes();
-
-  const filteredLogs = logs.filter(log => {
-    const matchesDate =
-      (!filter.startDate || new Date(log.created_at) >= new Date(filter.startDate)) &&
-      (!filter.endDate || new Date(log.created_at) <= new Date(filter.endDate));
-    const matchesCondition = !filter.skinCondition || log.dominant_condition === filter.skinCondition;
-    const matchesProduct =
-      !filter.productId ||
-      (log.recommended_product_ids && log.recommended_product_ids.split(',').includes(filter.productId));
-    return matchesDate && matchesCondition && matchesProduct;
-  });
-
-  const getConditionBadge = (condition: string) => {
-    const badges: Record<string, string> = {
-      acne: 'admin-badge admin-badge-acne',
-      blackheads: 'admin-badge admin-badge-oily',
-      clear_skin: 'admin-badge admin-badge-normal',
-      dark_spots: 'admin-badge admin-badge-dry',
-      puffy_eyes: 'admin-badge admin-badge-oily',
-      wrinkles: 'admin-badge admin-badge-dry',
-    };
-    return badges[condition] || 'admin-badge';
-  };
-
-  // Build export rows from the currently filtered logs
-  const buildExportRows = (): ExportRow[] =>
-    filteredLogs.map(log => ({
-      Date: new Date(log.created_at).toLocaleDateString(),
-      Condition: formatCondition(log.dominant_condition || ''),
-      'Recommended Products': getProductName(log.recommended_product_ids).join(', '),
-      User: log.user_name || 'Guest',
-    }));
-
-  const handleExportExcel = async () => {
+  const handleExportExcel = () => {
     setExporting('excel');
-    try {
-      exportToExcel(buildExportRows(), `analysis-report-${Date.now()}.xlsx`);
-    } finally {
-      setTimeout(() => setExporting(null), 800);
-    }
+    exportToExcel(buildRows(), `histori-analisis-${Date.now()}.xlsx`);
+    setTimeout(() => setExporting(null), 800);
   };
-
   const handleExportPDF = () => {
     setExporting('pdf');
-    try {
-      exportToPDF(buildExportRows(), 'Analysis Logs Report');
-    } finally {
-      setTimeout(() => setExporting(null), 800);
-    }
+    exportToPDF(buildRows(), 'Histori Analisis', ['Tanggal', 'Nama', 'Usia', 'Kondisi', 'Rekomendasi']);
+    setTimeout(() => setExporting(null), 800);
   };
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--text-main)' }}>
-            Reports &amp; Analytics
-          </h1>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Deep dive into analysis data
-          </p>
-        </div>
-
-        {/* Export Buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            id="export-excel-btn"
-            onClick={handleExportExcel}
-            disabled={exporting !== null || loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
-            style={{
-              background: exporting === 'excel' ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.12)',
-              color: 'var(--success, #10b981)',
-              border: '1px solid rgba(16,185,129,0.3)',
-              cursor: exporting !== null || loading ? 'not-allowed' : 'pointer',
-              opacity: exporting !== null || loading ? 0.7 : 1,
-            }}
-          >
-            {exporting === 'excel' ? (
-              <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                <path d="M12 2a10 10 0 0 1 10 10" />
-              </svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-            )}
-            Export Excel
-          </button>
-
-          <button
-            id="export-pdf-btn"
-            onClick={handleExportPDF}
-            disabled={exporting !== null || loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
-            style={{
-              background: exporting === 'pdf' ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.1)',
-              color: '#ef4444',
-              border: '1px solid rgba(239,68,68,0.3)',
-              cursor: exporting !== null || loading ? 'not-allowed' : 'pointer',
-              opacity: exporting !== null || loading ? 0.7 : 1,
-            }}
-          >
-            {exporting === 'pdf' ? (
-              <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                <path d="M12 2a10 10 0 0 1 10 10" />
-              </svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-                <polyline points="10 9 9 9 8 9" />
-              </svg>
-            )}
-            Export PDF
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Bar */}
+    <div className="space-y-4">
+      {/* Filters */}
       <div className="admin-card p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Start Date</label>
-            <input
-              type="date"
-              name="startDate"
-              value={filter.startDate}
-              onChange={handleFilterChange}
-              className="admin-input"
-            />
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Dari Tanggal</label>
+            <input type="date" value={filter.startDate} onChange={e => setFilter(f => ({ ...f, startDate: e.target.value }))} className="admin-input" />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>End Date</label>
-            <input
-              type="date"
-              name="endDate"
-              value={filter.endDate}
-              onChange={handleFilterChange}
-              className="admin-input"
-            />
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Sampai Tanggal</label>
+            <input type="date" value={filter.endDate} onChange={e => setFilter(f => ({ ...f, endDate: e.target.value }))} className="admin-input" />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Condition</label>
-            <select name="skinCondition" value={filter.skinCondition} onChange={handleFilterChange} className="admin-input">
-              <option value="">All</option>
-              {skinTypes.map(st => <option key={st.id} value={st.name}>{st.name}</option>)}
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Kondisi Kulit</label>
+            <select value={filter.skinCondition} onChange={e => setFilter(f => ({ ...f, skinCondition: e.target.value }))} className="admin-input">
+              <option value="">Semua</option>
+              {CONDITIONS.map(c => <option key={c} value={c}>{formatCondition(c)}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Product</label>
-            <select name="productId" value={filter.productId} onChange={handleFilterChange} className="admin-input">
-              <option value="">All</option>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Produk</label>
+            <select value={filter.productId} onChange={e => setFilter(f => ({ ...f, productId: e.target.value }))} className="admin-input">
+              <option value="">Semua</option>
               {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Export + count */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          {filtered.length} record
+        </span>
+        <div className="flex gap-2">
+          <button
+            onClick={handleExportExcel}
+            disabled={exporting !== null}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
+            style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}
+          >
+            {exporting === 'excel' ? '…' : '↓'} Export Excel
+          </button>
+          <button
+            onClick={handleExportPDF}
+            disabled={exporting !== null}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
+            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
+          >
+            {exporting === 'pdf' ? '…' : '↓'} Export PDF
+          </button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="admin-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Nama</th>
+                <th>Usia</th>
+                <th>Kondisi Dominan</th>
+                <th>Rekomendasi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(log => (
+                <tr key={log.id}>
+                  <td style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                    {new Date(log.created_at).toLocaleDateString('id-ID')}
+                  </td>
+                  <td className="font-medium" style={{ color: 'var(--text-main)' }}>
+                    {log.user_name || 'Guest'}
+                  </td>
+                  <td style={{ color: 'var(--text-muted)' }}>
+                    {log.user_age > 0 ? `${log.user_age} th` : '—'}
+                  </td>
+                  <td>
+                    <span className={conditionBadgeClass(log.dominant_condition)}>
+                      {formatCondition(log.dominant_condition)}
+                    </span>
+                  </td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                    {getProductNames(log.recommended_product_ids).join(', ')}
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr><td colSpan={5}><EmptyState text="Tidak ada data yang cocok dengan filter" /></td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Tab 2: Distribusi Kondisi Kulit ───────────────────────────────────────────
+
+function TabDistribusi({ chartsData, total }: { chartsData: ChartsData; total: number }) {
+  const pieData = chartsData.conditionDistribution.map(r => ({
+    name:  formatCondition(r.condition),
+    value: r.count,
+    key:   r.condition,
+  }));
+
+  const barData = pivotAgeGroup(chartsData.ageGroupDistribution);
+
+  const RADIAN = Math.PI / 180;
+  const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: Record<string, number>) => {
+    if (percent < 0.05) return null;
+    const r = innerRadius + (outerRadius - innerRadius) * 0.55;
+    return (
+      <text x={cx + r * Math.cos(-midAngle * RADIAN)} y={cy + r * Math.sin(-midAngle * RADIAN)}
+            fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={600}>
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Products */}
+        {/* Pie Chart */}
         <div className="admin-card p-5">
-          <h3 className="admin-section-header">Top Products</h3>
-          <div className="space-y-3 mt-4">
-            {mostRecommendedProducts.slice(0, 5).map((item, idx) => (
-              <div key={idx} className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <span
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold"
-                    style={{
-                      background: idx === 0 ? 'var(--gradient-metric)' : 'var(--bg-sidebar)',
-                      color: idx === 0 ? 'white' : 'var(--text-muted)'
-                    }}
-                  >
-                    {idx + 1}
-                  </span>
-                  <span className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>{item.product}</span>
-                </div>
-                <span
-                  className="px-2.5 py-1 rounded-full text-xs font-medium"
-                  style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' }}
-                >
-                  {item.count} rec.
-                </span>
-              </div>
-            ))}
-            {mostRecommendedProducts.length === 0 && (
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No data available</p>
-            )}
-          </div>
+          <h3 className="admin-section-header mb-1">Distribusi Kondisi Kulit</h3>
+          <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Total {total} analisis</p>
+          {pieData.length === 0 ? <EmptyState text="Belum ada data" /> : (
+            <ResponsiveContainer width="100%" height={260}>
+              <PieChart>
+                <Pie data={pieData} cx="50%" cy="50%" outerRadius={100} dataKey="value" labelLine={false} label={renderLabel}>
+                  {pieData.map((entry, i) => (
+                    <Cell key={i} fill={CONDITION_COLORS[entry.key] || '#94A3B8'} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v: number) => [`${v} analisis`, 'Jumlah']} />
+                <Legend formatter={(v) => <span style={{ fontSize: 12 }}>{v}</span>} />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
-        {/* Skin Type Distribution */}
+        {/* Summary table */}
         <div className="admin-card p-5">
-          <h3 className="admin-section-header">Skin Type Distribution</h3>
-          <div className="space-y-3 mt-4">
-            {mostCommonSkinTypes.map((item, idx) => {
-              const total = logs.length || 1;
-              const percentage = Math.round((item.count / total) * 100);
+          <h3 className="admin-section-header mb-4">Ringkasan per Kondisi</h3>
+          <div className="space-y-3">
+            {chartsData.conditionDistribution.map(r => {
+              const pct = total > 0 ? Math.round((r.count / total) * 100) : 0;
               return (
-                <div key={idx} className="space-y-1.5">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="font-medium" style={{ color: 'var(--text-main)' }}>
-                      {formatCondition(item.skinType)}
-                    </span>
-                    <span style={{ color: 'var(--text-muted)' }}>{item.count} ({percentage}%)</span>
+                <div key={r.condition} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span style={{ color: 'var(--text-main)' }}>{formatCondition(r.condition)}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{r.count} ({pct}%)</span>
                   </div>
-                  <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-sidebar)' }}>
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${percentage}%`, background: 'var(--gradient-metric)' }}
-                    />
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-sidebar)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: CONDITION_COLORS[r.condition] || '#94A3B8' }} />
                   </div>
                 </div>
               );
             })}
-            {mostCommonSkinTypes.length === 0 && (
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No data available</p>
+            {chartsData.conditionDistribution.length === 0 && (
+              <EmptyState text="Belum ada data" />
             )}
           </div>
         </div>
       </div>
 
-      {/* Logs Table */}
-      <div className="admin-card overflow-hidden">
-        <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-soft)' }}>
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>Analysis Logs</h3>
-          {!loading && (
-            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(108,99,255,0.1)', color: 'var(--primary)' }}>
-              {filteredLogs.length} record{filteredLogs.length !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div
-              className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin"
-              style={{ borderColor: 'var(--primary)', borderTopColor: 'transparent' }}
-            />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Condition</th>
-                  <th>Recommendation</th>
-                  <th>User</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLogs.map((log) => (
-                  <tr key={log.id}>
-                    <td>{new Date(log.created_at).toLocaleDateString()}</td>
-                    <td>
-                      <span className={getConditionBadge(log.dominant_condition)}>
-                        {log.dominant_condition}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="flex flex-col gap-1 max-w-xs">
-                        {getProductName(log.recommended_product_ids).map((name) => (
-                          <span key={name} className="block">{name}</span>
-                        ))}
-                      </div>
-                    </td>
-                    <td>{log.user_name || 'Guest'}</td>
-                  </tr>
-                ))}
-                {filteredLogs.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
-                      No logs found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+      {/* Segmentasi Usia × Kondisi */}
+      <div className="admin-card p-5">
+        <h3 className="admin-section-header mb-1">Segmentasi Usia per Kondisi Kulit</h3>
+        <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Distribusi kondisi berdasarkan kelompok usia</p>
+        {barData.length === 0 ? <EmptyState text="Belum ada data usia" /> : (
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={barData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+              <XAxis dataKey="ageGroup" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+              <Tooltip />
+              <Legend formatter={v => <span style={{ fontSize: 11 }}>{formatCondition(v)}</span>} />
+              {CONDITIONS.map(c => (
+                <Bar key={c} dataKey={c} name={formatCondition(c)} fill={CONDITION_COLORS[c]} stackId="a" />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Tab 3: Rekomendasi Produk ─────────────────────────────────────────────────
+
+function TabProduk({ chartsData }: { chartsData: ChartsData }) {
+  const barData = chartsData.topRecommendedProducts;
+
+  return (
+    <div className="space-y-6">
+      <div className="admin-card p-5">
+        <h3 className="admin-section-header mb-1">Produk Paling Sering Direkomendasikan</h3>
+        <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Top 10 produk berdasarkan frekuensi rekomendasi</p>
+        {barData.length === 0 ? <EmptyState text="Belum ada data" /> : (
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={barData} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+              <YAxis type="category" dataKey="productName" tick={{ fontSize: 11 }} width={140} />
+              <Tooltip formatter={(v: number) => [`${v}x`, 'Direkomendasikan']} />
+              <Bar dataKey="count" name="Frekuensi" radius={[0, 4, 4, 0]}>
+                {barData.map((_, i) => (
+                  <Cell key={i} fill={`hsl(${200 + i * 14},75%,${52 - i * 3}%)`} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="admin-card overflow-hidden">
+        <div className="px-5 py-3 border-b" style={{ borderColor: 'var(--border-soft)' }}>
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>Detail Produk</h3>
+        </div>
+        <table className="admin-table">
+          <thead><tr><th>#</th><th>Nama Produk</th><th>Frekuensi</th></tr></thead>
+          <tbody>
+            {barData.map((row, i) => (
+              <tr key={row.productId}>
+                <td style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
+                <td className="font-medium" style={{ color: 'var(--text-main)' }}>{row.productName}</td>
+                <td>
+                  <span className="px-2.5 py-1 rounded-full text-xs font-medium"
+                        style={{ background: 'rgba(14,165,233,0.1)', color: 'var(--primary)' }}>
+                    {row.count}x
+                  </span>
+                </td>
+              </tr>
+            ))}
+            {barData.length === 0 && (
+              <tr><td colSpan={3}><EmptyState text="Belum ada data" /></td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Tab 4: Tren Kondisi Kulit ─────────────────────────────────────────────────
+
+function TabTren({ chartsData, granularity, onGranularityChange }:
+  { chartsData: ChartsData; granularity: Granularity; onGranularityChange: (g: Granularity) => void }) {
+
+  const lineData = pivotTrend(chartsData.conditionTrend);
+
+  const GRAN_LABELS: Record<Granularity, string> = { day: 'Harian', week: 'Mingguan', month: 'Bulanan' };
+
+  return (
+    <div className="space-y-4">
+      {/* Toggle granularity */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Tampilkan:</span>
+        {(['day', 'week', 'month'] as Granularity[]).map(g => (
+          <button
+            key={g}
+            onClick={() => onGranularityChange(g)}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium transition"
+            style={{
+              background: granularity === g ? 'var(--primary)' : 'var(--bg-sidebar)',
+              color: granularity === g ? '#fff' : 'var(--text-secondary)',
+              border: granularity === g ? 'none' : '1px solid var(--border-soft)',
+            }}
+          >
+            {GRAN_LABELS[g]}
+          </button>
+        ))}
+      </div>
+
+      <div className="admin-card p-5">
+        <h3 className="admin-section-header mb-1">Tren Kondisi Kulit</h3>
+        <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+          Jumlah analisis per kondisi kulit ({GRAN_LABELS[granularity].toLowerCase()})
+        </p>
+        {lineData.length === 0 ? <EmptyState text="Belum ada data tren" /> : (
+          <ResponsiveContainer width="100%" height={320}>
+            <LineChart data={lineData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+              <Tooltip />
+              <Legend formatter={v => <span style={{ fontSize: 11 }}>{formatCondition(v)}</span>} />
+              {CONDITIONS.map(c => (
+                <Line
+                  key={c}
+                  type="monotone"
+                  dataKey={c}
+                  name={formatCondition(c)}
+                  stroke={CONDITION_COLORS[c]}
+                  strokeWidth={2}
+                  dot={false}
+                  connectNulls
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Reports Page ─────────────────────────────────────────────────────────
+
+export default function ReportsAdmin() {
+  const [activeTab, setActiveTab]   = useState<Tab>('histori');
+  const [granularity, setGranularity] = useState<Granularity>('day');
+
+  const [logs, setLogs]           = useState<AnalysisLog[]>([]);
+  const [products, setProducts]   = useState<Product[]>([]);
+  const [chartsData, setChartsData] = useState<ChartsData | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [chartsLoading, setChartsLoading] = useState(false);
+
+  // Load logs + products once
+  useEffect(() => {
+    Promise.all([getAnalysisLogsAction(), getProductsAction()])
+      .then(([l, p]) => { setLogs(l); setProducts(p); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Load chart data whenever granularity changes or tab switches to a chart tab
+  const loadCharts = useCallback(async (gran: Granularity) => {
+    setChartsLoading(true);
+    try {
+      const res = await fetch(`/api/reports/charts?granularity=${gran}`);
+      if (res.ok) setChartsData(await res.json());
+    } finally {
+      setChartsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'histori') loadCharts(granularity);
+  }, [activeTab, granularity, loadCharts]);
+
+  const TABS: { key: Tab; label: string }[] = [
+    { key: 'histori',   label: 'Histori Analisis' },
+    { key: 'distribusi', label: 'Distribusi Kondisi' },
+    { key: 'produk',    label: 'Rekomendasi Produk' },
+    { key: 'tren',      label: 'Tren Kondisi' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Page header */}
+      <div>
+        <h1 className="text-xl font-semibold" style={{ color: 'var(--text-main)' }}>Laporan &amp; Analitik</h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+          Eksplorasi mendalam data analisis kondisi kulit
+        </p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-sidebar)', width: 'fit-content' }}>
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+            style={{
+              background:   activeTab === tab.key ? 'var(--bg-surface)' : 'transparent',
+              color:        activeTab === tab.key ? 'var(--primary)'    : 'var(--text-muted)',
+              boxShadow:    activeTab === tab.key ? 'var(--shadow-sm)'  : 'none',
+              fontWeight:   activeTab === tab.key ? 600 : 400,
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      {loading ? (
+        <LoadingSpinner />
+      ) : activeTab === 'histori' ? (
+        <TabHistori logs={logs} products={products} />
+      ) : chartsLoading || !chartsData ? (
+        <LoadingSpinner />
+      ) : activeTab === 'distribusi' ? (
+        <TabDistribusi chartsData={chartsData} total={chartsData.meta.totalLogs} />
+      ) : activeTab === 'produk' ? (
+        <TabProduk chartsData={chartsData} />
+      ) : (
+        <TabTren
+          chartsData={chartsData}
+          granularity={granularity}
+          onGranularityChange={g => setGranularity(g)}
+        />
+      )}
     </div>
   );
 }

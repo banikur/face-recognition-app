@@ -1,4 +1,4 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 import { getAnalysisStatsAction } from './actions';
 import TrainingInfoCard from '@/components/TrainingInfoCard';
 
@@ -67,7 +67,7 @@ export default async function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide opacity-80">Unique Users</p>
-              <p className="text-3xl font-bold mt-1">{uniqueUsers || '—'}</p>
+              <p className="text-3xl font-bold mt-1">{uniqueUsers || 'â€”'}</p>
             </div>
             <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
