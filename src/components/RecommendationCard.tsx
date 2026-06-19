@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -96,8 +96,7 @@ export default function RecommendationCard({ skinType, recommendations }: Props)
                   strokeWidth={1.8}
                   style={{ color: "#60A5FA" }}
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 3h6l2 4H7l2-4z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 7v10a2 2 0 002 2h6a2 2 0 002-2V7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 2C12 2 5 9.5 5 14a7 7 0 0014 0c0-4.5-7-12-7-12z" />
                 </svg>
               </div>
 
@@ -141,3 +140,4 @@ export default function RecommendationCard({ skinType, recommendations }: Props)
     </div>
   );
 }
+
