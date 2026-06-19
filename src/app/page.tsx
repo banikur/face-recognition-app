@@ -216,6 +216,8 @@ export default function Home() {
   }, []);
 
   const handleCapture = async (result: AnalysisResult) => {
+    if (!userInfo) return;
+
     setIsAnalyzing(true);
     setAnalysis(result);
 
@@ -227,8 +229,8 @@ export default function Home() {
           body: JSON.stringify({
             scores: result.scores,
             skinType: result.skinType,
-            nama: userInfo?.nama ?? "Guest",
-            usia: userInfo?.usia ?? 0,
+            nama: userInfo.nama,
+            usia: userInfo.usia,
           }),
         });
         if (res.ok) {
@@ -351,7 +353,19 @@ export default function Home() {
           className="flex-1 min-h-0 flex flex-col"
           style={{ borderRight: "1px solid rgba(255,255,255,0.06)" }}
         >
-          <CameraPanel onCapture={handleCapture} isAnalyzing={isAnalyzing} />
+          {userInfo ? (
+            <CameraPanel onCapture={handleCapture} isAnalyzing={isAnalyzing} />
+          ) : (
+            <div
+              className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center"
+              style={{ backgroundColor: "#111113", color: "rgba(255,255,255,0.45)" }}
+            >
+              <svg className="w-10 h-10 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <p className="text-sm">Isi nama dan usia terlebih dahulu untuk memulai analisis.</p>
+            </div>
+          )}
         </div>
 
         {/* Right: Results + Recommendations — fixed width, internal scroll only */}

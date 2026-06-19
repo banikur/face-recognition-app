@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    return [
+      { source: '/admin/dashboard', destination: '/admin', permanent: true },
+    ];
+  },
   webpack: (config) => {
     // Fix for face-api.js fs issue
     config.resolve.alias = {

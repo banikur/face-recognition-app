@@ -22,19 +22,19 @@
 
 | Route | File | Status | Keterangan |
 |---|---|---|---|
-| `/admin` | `src/app/admin/page.tsx` | ✅ Ada | Dashboard overview + KPI cards |
-| `/admin/dashboard` | `src/app/admin/dashboard/page.tsx` | ✅ Ada (duplikat?) | Dashboard lama dengan tab Products/Analyses/Reports |
+| `/admin` | `src/app/admin/page.tsx` | ✅ Ada | Dashboard overview + KPI cards + quick links |
+| `/admin/dashboard` | — | ✅ Redirect | Permanent redirect ke `/admin` via `next.config.ts` |
 | `/admin/products` | `src/app/admin/products/page.tsx` | ✅ Ada & berfungsi | CRUD produk |
 | `/admin/brands` | `src/app/admin/brands/page.tsx` | ✅ Ada & berfungsi | CRUD brand |
 | `/admin/categories` | `src/app/admin/categories/page.tsx` | ✅ Ada & berfungsi | CRUD kategori produk |
 | `/admin/ingredients` | `src/app/admin/ingredients/page.tsx` | ✅ Ada & berfungsi | CRUD bahan aktif + bobot CNN |
 | `/admin/recommendations` | `src/app/admin/recommendations/page.tsx` | ✅ Ada & berfungsi | CRUD teks rekomendasi per kondisi |
 | `/admin/rules` | `src/app/admin/rules/page.tsx` | ✅ Ada & berfungsi | CRUD aturan kondisi → produk |
-| `/admin/reports` | `src/app/admin/reports/page.tsx` | ⚠️ Parsial | Hanya tabel analysis logs + export Excel/PDF |
+| `/admin/reports` | `src/app/admin/reports/page.tsx` | ✅ Lengkap | 4 tab: Histori, Distribusi, Rekomendasi Produk, Tren (+ recharts) |
 | `/admin/export` | `src/app/admin/export/page.tsx` | ✅ Ada | Export CSV, JSON, dll. |
 | `/admin/accounts` | `src/app/admin/accounts/page.tsx` | ✅ Ada & berfungsi | CRUD akun admin |
 
-> **Catatan:** Sidebar admin (`AdminSidebar.tsx`) hanya menampilkan: **Dashboard, Reports, Master Produk, Master Kondisi Kulit, Master Akun** — beberapa halaman ada di file tapi tidak muncul di navigasi (brands, categories, ingredients, rules, export).
+> **Catatan:** Sidebar admin (`AdminSidebar.tsx` via `layout.tsx`) menampilkan: **Dashboard, Laporan, Export Data**, grup **Master Data** (Produk, Brand, Kategori, Bahan Aktif), dan grup **Konfigurasi** (Rules, Rekomendasi, Akun Admin).
 
 ---
 
@@ -68,7 +68,8 @@
 
 | Method | Endpoint | Status | Keterangan |
 |---|---|---|---|
-| `GET` | `/api/reports/summary` | ✅ Ada | Ringkasan statistik |
+| `GET` | `/api/reports/charts` | ✅ Berfungsi | Data chart: distribusi, segmentasi usia, top produk, tren |
+| `GET` | `/api/reports/summary` | ✅ Ada | Ringkasan statistik (aggregat) |
 | `GET` | `/api/reports/export-xlsx` | ✅ Ada | Export Excel |
 | `GET` | `/api/reports/export-pdf` | ✅ Ada | Export PDF (server-side) |
 | `GET` | `/api/reports/export-csv` | ✅ Ada | Export CSV |
@@ -101,7 +102,7 @@ Berdasarkan `data/full-setup.sql` dan `data/models.ts`:
 
 **Semua 9 tabel yang diminta sudah ada di schema.** ✅
 
-> **Catatan penting:** `analysis_logs.user_name` saat ini selalu diisi `'Guest'` dan `user_age` selalu `0` karena belum ada form input nama/usia sebelum scan.
+> **Catatan:** `analysis_logs` menyimpan `user_name` dan `user_age` dari form identitas sebelum scan. Kolom `user_phone` sengaja dibiarkan `null` (tidak diminta requirement).
 
 ---
 
@@ -144,101 +145,111 @@ Berdasarkan `data/full-setup.sql` dan `data/models.ts`:
 ### ✅ Halaman Produk Publik
 - `/products` dengan filter berdasarkan kondisi kulit
 
----
+### ✅ Form Identitas Pengguna (Nama & Usia)
+- Modal `UserInfoModal` di `src/app/page.tsx` — wajib sebelum akses kamera
+- Data disimpan ke `sessionStorage` dan dikirim ke `POST /api/analysis/save-from-scan`
+- API memvalidasi `nama` dan `usia` (1–100)
 
-## 5. YANG BELUM ADA / BERMASALAH
+### ✅ Laporan Admin Lengkap (4 Tab + Chart)
+- `/admin/reports` — Histori, Distribusi Kondisi, Rekomendasi Produk, Tren Kondisi
+- Chart library: **recharts** (`PieChart`, `BarChart`, `LineChart`)
+- Segmentasi usia: `<20`, `20-35`, `36-50`, `>50` via `GET /api/reports/charts`
 
-### ❌ KRITIS — Wajib Diimplementasi
+### ✅ Privacy Consent & Bounding Box
+- Popup SweetAlert2 **sebelum** akses kamera (`CameraPanel.tsx`)
+- Live face bounding box overlay pada preview kamera & upload gambar
 
-#### 5.1 Form Input Nama & Usia Sebelum Analisis
-- **Problem:** `analysis_logs` selalu menyimpan `user_name = 'Guest'` dan `user_age = 0` karena tidak ada form input
-- **Lokasi perbaikan:** `src/app/page.tsx` dan `src/app/api/analysis/save-from-scan/route.ts`
-- **Yang diperlukan:** Modal/form sebelum capture — field `nama` (required) dan `usia` (required, integer)
-- **Dampak:** Laporan per pengguna dan segmentasi usia tidak bisa digunakan
-
-#### 5.2 Laporan Lengkap (4 Jenis Laporan)
-- **Ada saat ini:** `/admin/reports` hanya menampilkan tabel histori + export sederhana
-- **Belum ada:**
-  1. ❌ **Distribusi Kondisi Kulit** — chart pie/bar dari `dominant_condition` di `analysis_logs`
-  2. ❌ **Laporan Rekomendasi Produk** — produk paling sering direkomendasikan (dari `recommended_product_ids`)
-  3. ❌ **Tren Kondisi Kulit** — chart time-series `analysis_logs` digroup per tanggal/periode
-  4. ✅ **Histori Analisis** — sudah ada (tabel dengan filter)
-- **Chart library:** Tidak ada (recharts / chart.js belum diinstall)
-
-#### 5.3 Segmentasi Usia di Laporan
-- **Problem:** `user_age` selalu 0 (lihat poin 5.1)
-- **Yang diperlukan:** Grouping `<20, 20-35, 36-50, >50` di laporan distribusi
-
-#### 5.4 Navbar Publik Menampilkan Link Admin
-- **Problem:** Di `src/app/page.tsx` baris 85-95, navbar publik memiliki link langsung ke `/admin/products`
-- **Prompt requirement:** "Navbar: only 'Live Scan' and 'Products' — no admin links in public navbar"
-- **Fix:** Ganti link Products ke `/products` bukan `/admin/products`
-
-#### 5.5 Privacy & Consent Popup
-- **Problem:** Kode menggunakan `SweetAlert2` tapi popup consent belum terlihat di flow kamera
-- **Prompt requirement:** "Privacy & Data Usage popup before camera access (already exists, keep it)"
-- **Perlu dikonfirmasi:** Apakah sudah berjalan atau hanya placeholder
-
-### ⚠️ PERLU DIPERHATIKAN
-
-#### 5.6 Duplikasi Halaman Dashboard
-- `/admin` (page.tsx) = dashboard baru dengan KPI cards + recent logs ✅
-- `/admin/dashboard` (dashboard/page.tsx) = dashboard lama dengan tab system ⚠️ kemungkinan sudah tidak dipakai
-
-#### 5.7 Sidebar Navigasi Tidak Lengkap
-- Sidebar hanya menampilkan: Dashboard, Reports, Master Produk, Master Kondisi Kulit, Master Akun
-- **Tidak muncul di sidebar:** Brands, Categories, Ingredients, Rules, Export
-- Halaman-halaman tersebut ada tapi tidak bisa diakses dari navigasi
-
-#### 5.8 `analysis_logs.user_phone` Tidak Dipakai
-- Ada kolom `user_phone` di schema tapi prompt tidak mensyaratkan field ini
-- Bisa dibiarkan null atau dihapus dari form
-
-#### 5.9 Design Tidak Sesuai Requirement
-- Prompt: "Left panel: full-width camera feed dengan bounding box overlay centered (not full-width box)"
-- Saat ini: Tidak ada bounding box overlay di video preview
-- Prompt: "Right panel (300px): 3 zones — result header, score bars, product recommendations (3 cards)"
-- Saat ini: Layout sudah mirip tapi belum ada bounding box overlay di kamera
-
-#### 5.10 `/admin/skin-types` Tidak Ada
-- Di `src/app/admin/page.tsx` (tools list), ada link ke `/admin/skin-types` yang tidak ada
-- Ada juga `SkinType` interface dan actions yang merupakan alias/legacy dari `recommendations`
+### ✅ Navigasi Admin Lengkap
+- Sidebar: Dashboard, Laporan, Export, Master Data (4 item), Konfigurasi (Rules, Rekomendasi, Akun)
+- Dashboard quick-links ke semua modul (termasuk `/admin/recommendations`, bukan `/admin/skin-types`)
 
 ---
 
-## 6. RINGKASAN UNTUK IMPLEMENTASI
+## 5. STATUS IMPLEMENTASI (Diperbarui)
 
-### Prioritas Tinggi (Wajib untuk Sidang TA)
+### ✅ Selesai — Poin 5.1 s.d. 5.10
+
+#### 5.1 Form Input Nama & Usia Sebelum Analisis ✅
+- `UserInfoModal` di `src/app/page.tsx` — field `nama` + `usia` wajib
+- `CameraPanel` hanya dimuat setelah form disubmit
+- `POST /api/analysis/save-from-scan` memvalidasi dan menyimpan data real
+
+#### 5.2 Laporan Lengkap (4 Jenis Laporan) ✅
+- Tab **Histori Analisis** — tabel + filter + export Excel/PDF
+- Tab **Distribusi Kondisi** — PieChart + ringkasan per kondisi
+- Tab **Rekomendasi Produk** — BarChart top 10 produk
+- Tab **Tren Kondisi** — LineChart per hari/minggu/bulan
+- Data dari `GET /api/reports/charts`, library **recharts** terpasang
+
+#### 5.3 Segmentasi Usia di Laporan ✅
+- Chart stacked bar **Segmentasi Usia per Kondisi Kulit** di tab Distribusi
+- Grouping: `<20`, `20-35`, `36-50`, `>50`, `Tidak diketahui`
+
+#### 5.4 Navbar Publik ✅
+- Navbar hanya **Live Scan** (`/`) dan **Produk** (`/products`) — tanpa link admin
+
+#### 5.5 Privacy & Consent Popup ✅
+- SweetAlert2 ditampilkan sebelum `getUserMedia` / load model
+- Kamera tidak aktif sampai pengguna klik **"Saya Mengerti"**
+
+#### 5.6 Duplikasi Halaman Dashboard ✅
+- `/admin/dashboard` → permanent redirect ke `/admin` (`next.config.ts`)
+- File `dashboard/page.tsx` dihapus
+
+#### 5.7 Sidebar Navigasi ✅
+- Semua menu dapat diakses: Export Data ditambahkan ke sidebar top-level
+- Master Data + Konfigurasi sudah lengkap di `admin/layout.tsx`
+
+#### 5.8 `analysis_logs.user_phone` ✅
+- Kolom tetap ada di schema, selalu disimpan `null`
+- Requirement hanya mensyaratkan nama & usia — tidak perlu form telepon
+
+#### 5.9 Design Bounding Box Overlay ✅
+- Viewfinder panduan (corner markers) saat wajah belum terdeteksi
+- **Live bounding box** biru mengikuti wajah terdeteksi di preview kamera
+- Overlay juga pada mode upload gambar
+- Panel kanan ~320px: hasil analisis + score bars + 3 rekomendasi produk
+
+#### 5.10 Link `/admin/skin-types` ✅
+- Tidak ada route `/admin/skin-types` — diganti ke `/admin/recommendations` (Kondisi Kulit)
+- Dashboard quick-links diperbarui, tidak ada link broken
+
+---
+
+## 5 (ARSIP). CATATAN AWAL ANALISIS — Sudah Teratasi
+
+_Poin di bawah ini adalah temuan awal sebelum implementasi; semua sudah diselesaikan di atas._
+
+---
+
+## 6. RINGKASAN IMPLEMENTASI
+
+### ✅ Selesai (Siap Sidang TA)
 
 ```
-1. [FORM] Form nama + usia → simpan ke analysis_logs dengan data real
-2. [REPORT] Implementasi 4 laporan lengkap dengan chart (install recharts)
-3. [REPORT] Segmentasi usia <20, 20-35, 36-50, >50
-4. [NAV] Fix public navbar: Live Scan + Products (tanpa link admin)
-5. [SIDEBAR] Tambahkan semua menu ke sidebar admin
-```
-
-### Prioritas Sedang (Bagus untuk Demo)
-
-```
-6. [UI] Bounding box overlay di camera preview
-7. [UI] Privacy consent popup sebelum camera access
-8. [CLEANUP] Hapus/arsipkan /admin/dashboard (duplikat)
-9. [CLEANUP] Fix link /admin/skin-types yang broken
+✅ Form nama + usia → analysis_logs dengan data real
+✅ 4 laporan lengkap dengan recharts + segmentasi usia
+✅ Navbar publik: Live Scan + Products (tanpa link admin)
+✅ Sidebar admin lengkap + Export Data
+✅ Privacy consent sebelum kamera
+✅ Live bounding box overlay di preview
+✅ Redirect /admin/dashboard → /admin
+✅ Link Kondisi Kulit → /admin/recommendations
 ```
 
 ### Tidak Perlu Diubah (Sudah Oke)
 
 ```
-✅ CNN 6-class classification → sudah benar
-✅ Face detection confidence fix → sudah diterapkan
-✅ Snapshot-based capture (bukan continuous) → sudah benar
-✅ Admin auth + middleware protection → sudah benar
-✅ CRUD 4 master data → sudah berfungsi
-✅ Rules management → sudah berfungsi
-✅ Database schema (9 tabel) → sudah lengkap
-✅ Weighted recommendation scoring → sudah benar
-✅ Export Excel/PDF → sudah ada (di laporan)
+✅ CNN 6-class classification
+✅ Face detection confidence fix
+✅ Snapshot-based capture (bukan continuous)
+✅ Admin auth + middleware protection
+✅ CRUD master data (brands, categories, ingredients, products)
+✅ Rules management
+✅ Database schema (9 tabel)
+✅ Weighted recommendation scoring
+✅ Export Excel/PDF/CSV/JSON
+✅ user_phone dibiarkan null (by design)
 ```
 
 ---
@@ -255,7 +266,7 @@ Berdasarkan `data/full-setup.sql` dan `data/models.ts`:
 KARYAWAN
 ├── UC01 - Membuka aplikasi Live Scan
 │   └── «include» UC02 - Melihat Privacy & Consent Popup
-├── UC03 - Mengisi form identitas (nama + usia)  ← BELUM ADA, perlu dibuat
+├── UC03 - Mengisi form identitas (nama + usia)  ✅
 ├── UC04 - Mengaktifkan kamera
 ├── UC05 - Melakukan capture wajah
 │   ├── «include» UC06 - Deteksi wajah (MediaPipe)
@@ -286,12 +297,12 @@ ADMINISTRATOR
 ├── [RECOMMENDATIONS]
 │   └── UC23 - CRUD Teks Rekomendasi per Kondisi Kulit
 │
-├── [REPORTS]  ← 3 dari 4 BELUM ADA
+├── [REPORTS]
 │   ├── UC24 - Melihat Histori Analisis (dengan filter tanggal + kondisi) ✅
-│   ├── UC25 - Melihat Distribusi Kondisi Kulit (chart) ❌
-│   ├── UC26 - Melihat Laporan Rekomendasi Produk (chart) ❌
-│   ├── UC27 - Melihat Tren Kondisi Kulit per Periode (chart) ❌
-│   ├── UC28 - Melihat Segmentasi Usia ❌
+│   ├── UC25 - Melihat Distribusi Kondisi Kulit (chart) ✅
+│   ├── UC26 - Melihat Laporan Rekomendasi Produk (chart) ✅
+│   ├── UC27 - Melihat Tren Kondisi Kulit per Periode (chart) ✅
+│   ├── UC28 - Melihat Segmentasi Usia ✅
 │   └── UC29 - Export Laporan (Excel / PDF) ✅
 │       └── «extend» UC24
 │
@@ -391,29 +402,25 @@ ADMINISTRATOR
 
 ---
 
-## 9. IMPLEMENTASI YANG DIREKOMENDASIKAN (Urutan Pengerjaan)
+## 9. RIWAYAT SPRINT (Selesai)
 
 ```
-Sprint 1 — Core Fix (½ hari)
-├── Fix navbar publik: ganti /admin/products → /products
-├── Tambahkan semua item ke sidebar admin
-└── Fix link /admin/skin-types yang broken
+Sprint 1 — Core Fix ✅
+├── Navbar publik: /products (bukan /admin/products)
+├── Sidebar admin lengkap + Export Data
+└── Link Kondisi Kulit → /admin/recommendations
 
-Sprint 2 — Form Identitas (1 hari)
-├── Buat modal form input nama + usia SEBELUM capture
-├── Update state di page.tsx untuk menyimpan {nama, usia}
-└── Update POST /api/analysis/save-from-scan untuk menerima {nama, usia}
+Sprint 2 — Form Identitas ✅
+├── Modal nama + usia sebelum capture
+├── sessionStorage + validasi API save-from-scan
 
-Sprint 3 — Laporan & Chart (2 hari)
-├── Install recharts: npm install recharts
-├── Rombak /admin/reports menjadi 4 tab laporan:
-│   ├── Tab 1: Histori Analisis (sudah ada, pindahkan)
-│   ├── Tab 2: Distribusi Kondisi (PieChart dari dominant_condition)
-│   ├── Tab 3: Rekomendasi Produk (BarChart dari recommended_product_ids)
-│   └── Tab 4: Tren per Periode (LineChart dari created_at group by date)
-└── Tambah segmentasi usia di laporan distribusi
+Sprint 3 — Laporan & Chart ✅
+├── recharts terpasang
+├── 4 tab laporan di /admin/reports
+└── Segmentasi usia di tab Distribusi
 
-Sprint 4 — UI Enhancement (½ hari)
-├── Tambahkan bounding box overlay di CameraPanel
-└── Pastikan privacy popup berjalan sebelum camera access
+Sprint 4 — UI Enhancement ✅
+├── Live bounding box overlay di CameraPanel
+├── Privacy popup sebelum akses kamera
+└── Redirect permanen /admin/dashboard → /admin
 ```

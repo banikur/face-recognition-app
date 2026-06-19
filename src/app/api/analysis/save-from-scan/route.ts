@@ -65,16 +65,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing scores' }, { status: 400 });
     }
 
+    const trimmedNama = typeof nama === 'string' ? nama.trim() : '';
+    if (!trimmedNama) {
+      return NextResponse.json({ error: 'Nama wajib diisi' }, { status: 400 });
+    }
+    if (typeof usia !== 'number' || usia < 1 || usia > 100) {
+      return NextResponse.json({ error: 'Usia wajib diisi (1–100)' }, { status: 400 });
+    }
+
     const dominant_condition = getDominantCondition(scores);
     const recommendations    = await getRecommendations(scores);
     const recommended_product_ids = recommendations.map(p => p.id).join(',');
 
-    // Save to DB with real user data (fallback to Guest / 0 if not provided)
     const logId = await createAnalysisLog({
-      user_name:  (nama && nama.trim()) ? nama.trim() : 'Guest',
+      user_name:  trimmedNama,
       user_email: null,
-      user_phone: null,
-      user_age:   (typeof usia === 'number' && usia > 0) ? usia : 0,
+      user_phone: null, // tidak dipakai — requirement hanya nama & usia
+      user_age:   usia,
       acne_score:        (scores.acne        ?? 0) / 100,
       blackheads_score:  (scores.blackheads  ?? 0) / 100,
       clear_skin_score:  (scores.clear_skin  ?? 0) / 100,

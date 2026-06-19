@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { analyzeSnapshot, snapshotFromVideo, AnalysisResult } from "@/lib/skinAnalyzer";
-import { initializeFaceDetection } from "@/lib/faceDetection";
+import { detectFaces, initializeFaceDetection, type FaceBoundingBox } from "@/lib/faceDetection";
 import { loadSkinModel } from "@/lib/cnnSkinClassifier";
 import Swal from "sweetalert2";
 
@@ -30,6 +30,34 @@ function getUserMediaFn(): ((c: MediaStreamConstraints) => Promise<MediaStream>)
     new Promise((res, rej) =>
       (fn as (c: MediaStreamConstraints, s: (s: MediaStream) => void, e: (e: Error) => void) => void)(c, res, rej)
     );
+}
+
+// ── Live face bounding box (mirrored preview) ─────────────────────────────────
+function FaceBBoxOverlay({ box, mirrored = true }: { box: FaceBoundingBox; mirrored?: boolean }) {
+  const pad = 0.06;
+  const x = Math.max(0, box.x - box.width * pad);
+  const y = Math.max(0, box.y - box.height * pad);
+  const w = Math.min(1 - x, box.width * (1 + 2 * pad));
+  const h = Math.min(1 - y, box.height * (1 + 2 * pad));
+  const left = (mirrored ? 1 - x - w : x) * 100;
+
+  return (
+    <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 2 }}>
+      <div
+        style={{
+          position: "absolute",
+          left: `${left}%`,
+          top: `${y * 100}%`,
+          width: `${w * 100}%`,
+          height: `${h * 100}%`,
+          border: "2px solid #3B82F6",
+          borderRadius: 6,
+          boxShadow: "0 0 16px rgba(59,130,246,0.45)",
+          transition: "left 0.12s ease, top 0.12s ease, width 0.12s ease, height 0.12s ease",
+        }}
+      />
+    </div>
+  );
 }
 
 // ── Corner markers for the viewfinder ────────────────────────────────────────
@@ -118,9 +146,15 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processingState, setProcessingState] = useState<ProcessingState>("idle");
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [privacyResolved, setPrivacyResolved] = useState(false);
+  const [liveFaceBox, setLiveFaceBox] = useState<FaceBoundingBox | null>(null);
+  const liveDetectingRef = useRef(false);
 
-  // ── Model warm-up on mount ────────────────────────────────────────────────
+  // ── Privacy consent sebelum akses kamera / model ─────────────────────────
   useEffect(() => {
+    let mounted = true;
+
     Swal.fire({
       title: "Privacy & Data Usage",
       html: `<div style="text-align:left;line-height:1.6;font-size:14px;">
@@ -132,16 +166,28 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
       icon: "info",
       confirmButtonText: "Saya Mengerti",
       confirmButtonColor: "#3B82F6",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
       width: 420,
       padding: "1.5rem",
+    }).then((result) => {
+      if (!mounted) return;
+      if (result.isConfirmed) {
+        setPrivacyAccepted(true);
+        initializeFaceDetection().catch(() => {});
+        loadSkinModel().catch(() => {});
+      } else {
+        setError("Anda perlu menyetujui kebijakan privasi untuk menggunakan kamera.");
+      }
+      setPrivacyResolved(true);
     });
-    initializeFaceDetection().catch(() => {});
-    loadSkinModel().catch(() => {});
+
+    return () => { mounted = false; };
   }, []);
 
   // ── Camera lifecycle ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (mode !== "camera") { stopStream(); return; }
+    if (!privacyAccepted || mode !== "camera") { stopStream(); return; }
     let cancelled = false;
 
     const startCamera = async () => {
@@ -195,7 +241,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
     startCamera();
     return () => { cancelled = true; stopStream(); setCameraReady(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [mode, privacyAccepted]);
 
   const stopStream = () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -204,7 +250,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
 
   // ── Capture ───────────────────────────────────────────────────────────────
   const handleCapture = useCallback(async () => {
-    if (processingState !== "idle" || isAnalyzing) return;
+    if (!privacyAccepted || processingState !== "idle" || isAnalyzing) return;
 
     try {
       setProcessingState("detecting");
@@ -245,7 +291,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
     } finally {
       setTimeout(() => setProcessingState("idle"), 400);
     }
-  }, [mode, cameraReady, uploadImageLoaded, processingState, isAnalyzing, onCapture]);
+  }, [privacyAccepted, mode, cameraReady, uploadImageLoaded, processingState, isAnalyzing, onCapture]);
 
   // ── File upload ───────────────────────────────────────────────────────────
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -271,8 +317,62 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   };
 
   const isProcessing = processingState !== "idle" || isAnalyzing;
+
+  // ── Live face bbox pada preview kamera ────────────────────────────────────
+  useEffect(() => {
+    if (!privacyAccepted || !cameraReady || mode !== "camera" || isProcessing) {
+      setLiveFaceBox(null);
+      return;
+    }
+
+    const tick = async () => {
+      const video = videoRef.current;
+      if (!video || liveDetectingRef.current || isProcessing) return;
+      liveDetectingRef.current = true;
+      try {
+        const result = await detectFaces(video);
+        if (result.faceDetected && result.confidence >= 0.2 && result.boundingBox) {
+          setLiveFaceBox(result.boundingBox);
+        } else {
+          setLiveFaceBox(null);
+        }
+      } catch {
+        setLiveFaceBox(null);
+      } finally {
+        liveDetectingRef.current = false;
+      }
+    };
+
+    const id = setInterval(() => { void tick(); }, 900);
+    return () => { clearInterval(id); setLiveFaceBox(null); };
+  }, [privacyAccepted, cameraReady, mode, isProcessing]);
+
+  // ── Face bbox pada mode upload (tanpa mirror) ─────────────────────────────
+  useEffect(() => {
+    if (mode !== "upload" || !uploadImageLoaded || !uploadedImageRef.current || isProcessing) {
+      if (mode !== "upload") setLiveFaceBox(null);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await detectFaces(uploadedImageRef.current!);
+        if (!cancelled && result.faceDetected && result.boundingBox) {
+          setLiveFaceBox(result.boundingBox);
+        } else if (!cancelled) {
+          setLiveFaceBox(null);
+        }
+      } catch {
+        if (!cancelled) setLiveFaceBox(null);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [mode, uploadImageLoaded, uploadedImage, isProcessing]);
+
   const captureDisabled =
-    isProcessing || uploadLoading ||
+    !privacyAccepted || isProcessing || uploadLoading ||
     (mode === "camera" && !cameraReady) ||
     (mode === "upload" && !uploadedImage);
 
@@ -379,13 +479,55 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
               autoPlay
             />
 
-            {/* Viewfinder overlay — shown when camera is ready and not processing */}
-            {cameraReady && !isProcessing && (
+            {/* Viewfinder overlay — panduan posisi wajah */}
+            {cameraReady && !isProcessing && !liveFaceBox && (
               <ViewfinderBox active={cameraReady} />
             )}
 
+            {/* Bounding box wajah terdeteksi (live) */}
+            {liveFaceBox && !isProcessing && <FaceBBoxOverlay box={liveFaceBox} />}
+
             {/* Camera loading state */}
-            {!cameraReady && !error && (
+            {!privacyAccepted && privacyResolved && (
+              <div style={{
+                position: "absolute", inset: 0, display: "flex",
+                flexDirection: "column", alignItems: "center", justifyContent: "center",
+                color: "rgba(255,255,255,0.5)", padding: 24, textAlign: "center",
+              }}>
+                <p style={{ fontSize: 13, marginBottom: 12 }}>Persetujuan privasi diperlukan untuk mengakses kamera.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    Swal.fire({
+                      title: "Privacy & Data Usage",
+                      html: `<div style="text-align:left;line-height:1.6;font-size:14px;">
+                        <p>Website ini dibuat khusus untuk keperluan <b>demo Tugas Akhir</b>.</p>
+                        <p style="margin-top:8px">Sistem <b>tidak menyimpan foto, gambar wajah, atau data biometrik</b> pengguna.
+                        Seluruh proses pengolahan wajah dilakukan <b>secara langsung di browser</b> (client-side).</p>
+                      </div>`,
+                      icon: "info",
+                      confirmButtonText: "Saya Mengerti",
+                      confirmButtonColor: "#3B82F6",
+                    }).then((r) => {
+                      if (r.isConfirmed) {
+                        setPrivacyAccepted(true);
+                        setError(null);
+                        initializeFaceDetection().catch(() => {});
+                        loadSkinModel().catch(() => {});
+                      }
+                    });
+                  }}
+                  style={{
+                    padding: "8px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                    background: "#3B82F6", color: "#fff", border: "none", cursor: "pointer",
+                  }}
+                >
+                  Tampilkan Kebijakan Privasi
+                </button>
+              </div>
+            )}
+
+            {!cameraReady && !error && privacyAccepted && (
               <div style={{
                 position: "absolute", inset: 0, display: "flex",
                 flexDirection: "column", alignItems: "center", justifyContent: "center",
@@ -406,19 +548,24 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
         {mode === "upload" && (
           <>
             {uploadedImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                ref={uploadedImageRef}
-                src={uploadedImage}
-                alt="Uploaded"
-                style={{
-                  position: "absolute", inset: 0,
-                  width: "100%", height: "100%",
-                  objectFit: "contain",
-                  backgroundColor: "#111",
-                }}
-                onLoad={() => setUploadImageLoaded(true)}
-              />
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  ref={uploadedImageRef}
+                  src={uploadedImage}
+                  alt="Uploaded"
+                  style={{
+                    position: "absolute", inset: 0,
+                    width: "100%", height: "100%",
+                    objectFit: "contain",
+                    backgroundColor: "#111",
+                  }}
+                  onLoad={() => setUploadImageLoaded(true)}
+                />
+                {liveFaceBox && !isProcessing && (
+                  <FaceBBoxOverlay box={liveFaceBox} mirrored={false} />
+                )}
+              </>
             ) : (
               <div
                 onClick={() => fileInputRef.current?.click()}
