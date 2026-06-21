@@ -2,7 +2,8 @@
 ## Face Analytic — Skin Condition Classification App (TA)
 
 > Analisis menyeluruh sebelum implementasi berdasarkan prompt requirement.  
-> Stack aktual: **Next.js 15, React 19, TailwindCSS, PostgreSQL (Supabase/pg), TensorFlow.js, MediaPipe**
+> Stack aktual: **Next.js 15, React 19, TailwindCSS, PostgreSQL (Supabase/pg), TensorFlow.js, MediaPipe**  
+> **Terakhir diverifikasi vs source code:** review BAB IV (login, arsitektur analisa, Server Actions admin, export)
 
 ---
 
@@ -16,7 +17,7 @@
 | `/products` | `src/app/products/page.tsx` | ✅ Ada & berfungsi | Halaman produk publik dengan filter kondisi |
 | `/recommendations` | `src/app/recommendations/page.tsx` | ✅ Ada | Rekomendasi berdasarkan `?condition=` query param |
 | `/campaign` | `src/app/campaign/page.tsx` | ✅ Ada | Landing page jenis kulit (statis) |
-| `/login` | `src/app/login/page.tsx` | ✅ Ada & berfungsi | Halaman login admin |
+| `/login` | `src/app/login/page.tsx` | ✅ Ada & berfungsi | Halaman login admin — field pertama **Email** (label), placeholder `admin@skinlab.com`, body POST `{ email, password }` |
 
 ### Admin Routes (protected — redirect ke `/login` jika belum login)
 
@@ -24,14 +25,14 @@
 |---|---|---|---|
 | `/admin` | `src/app/admin/page.tsx` | ✅ Ada | Dashboard overview + KPI cards + quick links |
 | `/admin/dashboard` | — | ✅ Redirect | Permanent redirect ke `/admin` via `next.config.ts` |
-| `/admin/products` | `src/app/admin/products/page.tsx` | ✅ Ada & berfungsi | CRUD produk |
-| `/admin/brands` | `src/app/admin/brands/page.tsx` | ✅ Ada & berfungsi | CRUD brand |
-| `/admin/categories` | `src/app/admin/categories/page.tsx` | ✅ Ada & berfungsi | CRUD kategori produk |
-| `/admin/ingredients` | `src/app/admin/ingredients/page.tsx` | ✅ Ada & berfungsi | CRUD bahan aktif + bobot CNN |
+| `/admin/products` | `src/app/admin/products/page.tsx` | ✅ Ada & berfungsi | CRUD produk via **Server Action** (`src/app/admin/actions.ts`) |
+| `/admin/brands` | `src/app/admin/brands/page.tsx` | ✅ Ada & berfungsi | CRUD brand via **Server Action** |
+| `/admin/categories` | `src/app/admin/categories/page.tsx` | ✅ Ada & berfungsi | CRUD kategori via **Server Action** |
+| `/admin/ingredients` | `src/app/admin/ingredients/page.tsx` | ✅ Ada & berfungsi | CRUD bahan aktif + bobot CNN via **Server Action** |
 | `/admin/recommendations` | `src/app/admin/recommendations/page.tsx` | ✅ Ada & berfungsi | CRUD teks rekomendasi per kondisi |
 | `/admin/rules` | `src/app/admin/rules/page.tsx` | ✅ Ada & berfungsi | CRUD aturan kondisi → produk |
 | `/admin/reports` | `src/app/admin/reports/page.tsx` | ✅ Lengkap | 4 tab: Histori, Distribusi, Rekomendasi Produk, Tren (+ recharts) |
-| `/admin/export` | `src/app/admin/export/page.tsx` | ✅ Ada | Export CSV, JSON, dll. |
+| `/admin/export` | `src/app/admin/export/page.tsx` | ✅ Ada | Export **CSV + JSON** saja (via `/api/reports/export-csv`, `/api/reports/export-json`) |
 | `/admin/accounts` | `src/app/admin/accounts/page.tsx` | ✅ Ada & berfungsi | CRUD akun admin |
 
 > **Catatan:** Sidebar admin (`AdminSidebar.tsx` via `layout.tsx`) menampilkan: **Dashboard, Laporan, Export Data**, grup **Master Data** (Produk, Brand, Kategori, Bahan Aktif), dan grup **Konfigurasi** (Rules, Rekomendasi, Akun Admin).
@@ -52,28 +53,45 @@
 
 | Method | Endpoint | Status | Keterangan |
 |---|---|---|---|
-| `POST` | `/api/analysis/save-from-scan` | ✅ Berfungsi | Simpan hasil scan, return rekomendasi |
-| `GET` | `/api/analysis` | ✅ Ada | Ambil semua logs |
+| `POST` | `/api/analysis/save-from-scan` | ✅ Berfungsi | **Dipakai halaman utama** — terima `scores` dari client, hitung rekomendasi, simpan log |
+| `POST` | `/api/analysis` | ⚠️ Ada, tidak dipakai UI utama | Alternatif/legacy — terima skor mentah + user fields; halaman `/` memakai `save-from-scan` |
 | `GET` | `/api/analysis-logs` | ✅ Ada | Logs dengan filter date/condition |
 
-### Products
+> **Arsitektur analisa (2 lapisan terpisah):**
+> - **Client-side (browser):** `CameraPanel` → `skinAnalyzer.ts` → `cnnSkinClassifier.ts` — face detection + inferensi CNN
+> - **Server-side (API):** `page.tsx` kirim hasil ke `POST /api/analysis/save-from-scan` — rekomendasi produk + penyimpanan log
+
+### Products (REST — halaman publik, bukan admin CRUD)
 
 | Method | Endpoint | Status | Keterangan |
 |---|---|---|---|
-| `GET` | `/api/products` | ✅ Berfungsi | Daftar produk (enriched dengan brand + ingredients) |
-| `POST` | `/api/products` | ✅ Ada | Buat produk baru |
-| `GET/PUT/DELETE` | `/api/products/[id]` | ✅ Ada | Operasi per produk |
+| `GET` | `/api/products` | ✅ Berfungsi | Dipakai `/products`, `RecommendationCard`, `/recommendations` |
+| `POST` | `/api/products` | ✅ Ada | Buat produk (REST) — **admin CRUD tidak memakai ini** |
+| `GET/PUT/DELETE` | `/api/products/[id]` | ✅ Ada | Operasi per produk (REST) |
+
+### Admin CRUD (Server Actions — `'use server'`)
+
+| Modul | File actions | Dipanggil dari |
+|---|---|---|
+| Brand, Category, Ingredients, Product, Recommendations, Analysis logs | `src/app/admin/actions.ts` | Halaman `/admin/brands`, `/categories`, `/ingredients`, `/products`, dll. |
+| Rules | `src/app/admin/rules/actions.ts` | `/admin/rules` |
+| Admin accounts | `src/app/admin/actions.ts` | `/admin/accounts` |
 
 ### Reports / Export
 
 | Method | Endpoint | Status | Keterangan |
 |---|---|---|---|
-| `GET` | `/api/reports/charts` | ✅ Berfungsi | Data chart: distribusi, segmentasi usia, top produk, tren |
+| `GET` | `/api/reports/charts` | ✅ Berfungsi | Data chart: distribusi, segmentasi usia, top produk, tren — dipakai `/admin/reports` |
 | `GET` | `/api/reports/summary` | ✅ Ada | Ringkasan statistik (aggregat) |
-| `GET` | `/api/reports/export-xlsx` | ✅ Ada | Export Excel |
-| `GET` | `/api/reports/export-pdf` | ✅ Ada | Export PDF (server-side) |
-| `GET` | `/api/reports/export-csv` | ✅ Ada | Export CSV |
-| `GET` | `/api/reports/export-json` | ✅ Ada | Export JSON |
+| `GET` | `/api/reports/export-xlsx` | ⚠️ Ada, **tidak di-wire UI** | Server-side XLSX (sheet Analyses + Summary) |
+| `GET` | `/api/reports/export-pdf` | ⚠️ Ada, **tidak di-wire UI** | Server-side PDF (distribusi kondisi + recent analyses) |
+| `GET` | `/api/reports/export-csv` | ✅ Dipakai UI | Dipanggil dari `/admin/export` |
+| `GET` | `/api/reports/export-json` | ✅ Dipakai UI | Dipanggil dari `/admin/export` |
+
+> **Tidak ada** endpoint/halaman export terpisah khusus "Skin Condition" saja. Export yang aktif di UI:
+> - Tab **Histori Analisis** (`/admin/reports`) — Excel + PDF **client-side** (kolom Kondisi + Rekomendasi dalam satu file)
+> - Halaman **Export Data** (`/admin/export`) — CSV + JSON
+> - Tab Distribusi, Rekomendasi Produk, Tren — **tanpa** tombol export
 
 ### Lainnya
 
@@ -125,11 +143,17 @@ Berdasarkan `data/full-setup.sql` dan `data/models.ts`:
 - `AdminLayout` server component cek session, redirect ke `/login` jika gagal
 - `admin_users` table dengan bcrypt password hash
 
-### ✅ Master Data CRUD (4 data master)
-- **Brands** → `/admin/brands` ✅ CRUD lengkap
-- **Ingredients** → `/admin/ingredients` ✅ CRUD lengkap + bobot 6 kondisi
-- **Product Categories** → `/admin/categories` ✅ CRUD lengkap
-- **Products** → `/admin/products` ✅ CRUD lengkap + relasi ke brand, category, ingredients
+### ✅ Master Data CRUD (4 data master) — via Server Actions
+Semua CRUD admin (Brand, Category, Ingredients, Product) memakai **Next.js Server Action** di `src/app/admin/actions.ts` (`'use server'`), **bukan** REST API route.
+
+| Modul | Halaman | Actions (contoh) |
+|---|---|---|
+| Brands | `/admin/brands` | `getBrandsAction`, `createBrandAction`, `updateBrandAction`, `deleteBrandAction` |
+| Categories | `/admin/categories` | `getCategoriesAction`, `createCategoryAction`, … |
+| Ingredients | `/admin/ingredients` | `getIngredientsAction`, `createIngredientAction`, … + bobot 6 kondisi |
+| Products | `/admin/products` | `getProductsAction`, `createProductAction`, `updateProductAction`, `deleteProductAction`, `getProductIngredientsAction` |
+
+Route REST `/api/products` hanya dipakai halaman **publik** (`/products`, `/recommendations`).
 
 ### ✅ Rules Management
 - `/admin/rules` → CRUD aturan kondisi → produk dengan `confidence_score`
@@ -140,7 +164,10 @@ Berdasarkan `data/full-setup.sql` dan `data/models.ts`:
 - Return TOP-3 produk dengan skor tertinggi
 
 ### ✅ Export Data
-- Export ke Excel (xlsx), PDF (print popup), CSV, JSON tersedia
+- **Histori Analisis** (`/admin/reports`, tab pertama): export Excel (client-side `xlsx`) + PDF (print popup browser) — satu file berisi kondisi dominan **dan** rekomendasi produk
+- **Export Data** (`/admin/export`): CSV + JSON via API route
+- Route server `/api/reports/export-xlsx` dan `/api/reports/export-pdf` **ada di kode** tetapi tidak terhubung ke tombol UI manapun
+- **Tidak ada** laporan export terpisah khusus "Skin Condition" vs distribusi/rekomendasi
 
 ### ✅ Halaman Produk Publik
 - `/products` dengan filter berdasarkan kondisi kulit
@@ -175,7 +202,7 @@ Berdasarkan `data/full-setup.sql` dan `data/models.ts`:
 - `POST /api/analysis/save-from-scan` memvalidasi dan menyimpan data real
 
 #### 5.2 Laporan Lengkap (4 Jenis Laporan) ✅
-- Tab **Histori Analisis** — tabel + filter + export Excel/PDF
+- Tab **Histori Analisis** — tabel + filter + export Excel/PDF (client-side, kondisi + rekomendasi dalam satu export)
 - Tab **Distribusi Kondisi** — PieChart + ringkasan per kondisi
 - Tab **Rekomendasi Produk** — BarChart top 10 produk
 - Tab **Tren Kondisi** — LineChart per hari/minggu/bulan
@@ -244,17 +271,19 @@ _Poin di bawah ini adalah temuan awal sebelum implementasi; semua sudah diselesa
 ✅ Face detection confidence fix
 ✅ Snapshot-based capture (bukan continuous)
 ✅ Admin auth + middleware protection
-✅ CRUD master data (brands, categories, ingredients, products)
-✅ Rules management
+✅ CRUD master data via Server Actions (brands, categories, ingredients, products)
+✅ Rules management (Server Action di rules/actions.ts)
 ✅ Database schema (9 tabel)
-✅ Weighted recommendation scoring
-✅ Export Excel/PDF/CSV/JSON
+✅ Weighted recommendation scoring (client CNN → server save-from-scan)
+✅ Export: Histori (Excel/PDF client-side) + Export page (CSV/JSON)
 ✅ user_phone dibiarkan null (by design)
 ```
 
 ---
 
 ## 7. USE CASE DIAGRAM
+
+> **Catatan file:** `diagrams/use-case-diagram.puml` **tidak ada** di repo. Diagram di bawah disusun inline untuk referensi skripsi; cocokkan dengan teks BAB IV Anda.
 
 ### Aktor
 - **Karyawan** (public user) — tidak perlu login
@@ -424,3 +453,77 @@ Sprint 4 — UI Enhancement ✅
 ├── Privacy popup sebelum akses kamera
 └── Redirect permanen /admin/dashboard → /admin
 ```
+
+---
+
+## 10. VERIFIKASI SOURCE CODE (BAB IV — UML / Wireframe / Skripsi)
+
+> Verifikasi langsung terhadap kode aktual (bukan dokumentasi). Diperbarui untuk review BAB IV.
+
+### 10.1 Login Admin
+
+| Item | Nilai di kode |
+|---|---|
+| File | `src/app/login/page.tsx` (tidak ada komponen `LoginForm` terpisah) |
+| Label field pertama | **Email** (baris 58–59) |
+| Placeholder | `admin@skinlab.com` (bukan "Email" atau "Username") |
+| Field POST ke `/api/login` | **`email`** — `{ email, password }` (baris 22) |
+| Backend | `src/app/api/login/route.ts` baris 9 — expect `email` |
+
+### 10.2 Alur Analisa Wajah — Dua Lapisan Terpisah
+
+Bukan dua nama untuk alur yang sama; ini **satu pipeline berurutan** dengan dua tanggung jawab berbeda:
+
+```
+[Browser] CameraPanel → skinAnalyzer.ts → cnnSkinClassifier.ts
+         (face detect + CNN inferensi)
+              ↓ scores, skinType
+[Server]  POST /api/analysis/save-from-scan
+         (rekomendasi produk + simpan analysis_logs)
+              ↓
+         page.tsx menampilkan recommendations
+```
+
+| Lapisan | File utama | Peran |
+|---|---|---|
+| Client | `src/lib/skinAnalyzer.ts` (134–160), `src/lib/cnnSkinClassifier.ts`, `src/components/CameraPanel.tsx` | Inferensi CNN di browser |
+| Server | `src/app/api/analysis/save-from-scan/route.ts` | Dot-product rekomendasi + `createAnalysisLog()` |
+| Orkestrasi UI | `src/app/page.tsx` (218–239) | Panggil API setelah capture |
+
+Route alternatif `POST /api/analysis` (`src/app/api/analysis/route.ts`) ada tetapi **tidak** dipanggil halaman utama.
+
+### 10.3 CRUD Admin — Brand, Category, Ingredients
+
+**Server Action** (`'use server'`), file: `src/app/admin/actions.ts`
+
+| Fitur | Halaman | Actions |
+|---|---|---|
+| Brand | `src/app/admin/brands/page.tsx` | `getBrandsAction`, `createBrandAction`, `updateBrandAction`, `deleteBrandAction` (≈ baris 136–178) |
+| Product Category | `src/app/admin/categories/page.tsx` | `getCategoriesAction`, `createCategoryAction`, `updateCategoryAction`, `deleteCategoryAction` (≈ baris 184–226) |
+| Ingredients | `src/app/admin/ingredients/page.tsx` | `getIngredientsAction`, `createIngredientAction`, `updateIngredientAction`, `deleteIngredientAction` (≈ baris 232–267) |
+
+### 10.4 CRUD Admin — Product
+
+**Server Action** (bukan API Route untuk admin):
+
+| Item | Detail |
+|---|---|
+| Halaman | `src/app/admin/products/page.tsx` |
+| Actions | `getProductsAction`, `createProductAction`, `updateProductAction`, `deleteProductAction`, `getProductIngredientsAction` di `src/app/admin/actions.ts` (≈ baris 326–388) |
+| REST API | `src/app/api/products/route.ts`, `src/app/api/products/[id]/route.ts` — hanya halaman publik |
+
+### 10.5 File PlantUML Use Case
+
+**Tidak ditemukan** — tidak ada `diagrams/use-case-diagram.puml` maupun file `.puml` lain di repo. Gunakan Section 7 dokumen ini atau file skripsi terpisah.
+
+### 10.6 Export Laporan Skin Condition
+
+**Tidak ada** endpoint/halaman export khusus "Skin Condition" yang terpisah dari rekomendasi/distribusi.
+
+| Lokasi | Format | Isi export |
+|---|---|---|
+| `src/app/admin/reports/page.tsx` — tab Histori (175–183) | XLSX + PDF client-side | Tanggal, Nama, Usia, **Kondisi**, **Rekomendasi** (gabungan) |
+| `src/app/admin/export/page.tsx` | CSV, JSON | Log analisis via API |
+| `src/app/api/reports/export-xlsx/route.ts` | XLSX server | Sheet Analyses (skor + kondisi + rekomendasi) + Summary — **tidak di-wire UI** |
+| `src/app/api/reports/export-pdf/route.ts` | PDF server | Distribusi kondisi + recent analyses — **tidak di-wire UI** |
+| Tab Distribusi / Rekomendasi Produk / Tren | — | Tanpa tombol export |

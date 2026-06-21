@@ -84,39 +84,119 @@ function pivotTrend(rows: TrendRow[]) {
     .map(([date, conds]) => ({ date, ...conds }));
 }
 
-// Export helpers (reuse existing pattern)
-function exportToExcel(rows: Record<string, unknown>[], filename: string) {
+// Export helpers
+interface ExportSection {
+  title: string;
+  headers: string[];
+  rows: Record<string, string>[];
+}
+
+function exportToExcel(rows: Record<string, unknown>[], filename: string, sheetName = 'Report') {
   import('xlsx').then((XLSX) => {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Report');
+    XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31));
+    XLSX.writeFile(wb, filename);
+  });
+}
+
+function exportToExcelMulti(
+  sheets: { name: string; rows: Record<string, unknown>[] }[],
+  filename: string
+) {
+  import('xlsx').then((XLSX) => {
+    const wb = XLSX.utils.book_new();
+    for (const sheet of sheets) {
+      const ws = XLSX.utils.json_to_sheet(sheet.rows);
+      XLSX.utils.book_append_sheet(wb, ws, sheet.name.slice(0, 31));
+    }
     XLSX.writeFile(wb, filename);
   });
 }
 
 function exportToPDF(rows: Record<string, string>[], title: string, headers: string[]) {
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${title}</title>
+  exportToPDFMulti(title, [{ title, headers, rows }]);
+}
+
+function exportToPDFMulti(docTitle: string, sections: ExportSection[]) {
+  const sectionHtml = sections.map(sec => `
+    <h2>${sec.title}</h2>
+    <table>
+      <thead><tr>${sec.headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${sec.rows.map(r => `<tr>${sec.headers.map(h => `<td>${r[h] ?? ''}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table>
+  `).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${docTitle}</title>
   <style>
     body{font-family:Arial,sans-serif;padding:24px;color:#1a1a2e}
     h1{font-size:18px;color:#6c63ff;margin-bottom:4px}
+    h2{font-size:14px;color:#444;margin:24px 0 8px}
+    h2:first-of-type{margin-top:12px}
     .sub{font-size:11px;color:#888;margin-bottom:20px}
-    table{width:100%;border-collapse:collapse;font-size:12px}
+    table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px}
     th{background:#6c63ff;color:#fff;padding:8px 10px;text-align:left}
     td{padding:7px 10px;border-bottom:1px solid #e8e8f0}
     tr:nth-child(even){background:#f5f5ff}
   </style></head><body>
-  <h1>${title}</h1>
+  <h1>${docTitle}</h1>
   <p class="sub">Digenerate: ${new Date().toLocaleString('id-ID')}</p>
-  <table>
-    <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map(r => `<tr>${headers.map(h => `<td>${r[h] ?? ''}</td>`).join('')}</tr>`).join('')}</tbody>
-  </table>
+  ${sectionHtml}
   </body></html>`;
   const w = window.open('', '_blank', 'width=900,height=650');
   if (!w) { alert('Izinkan pop-up untuk mengekspor PDF.'); return; }
   w.document.write(html);
   w.document.close();
   w.onload = () => { w.focus(); w.print(); };
+}
+
+function pivotToExportRows(
+  pivoted: Record<string, unknown>[],
+  periodKey: string,
+  periodLabel: string
+): Record<string, string>[] {
+  return pivoted.map(row => {
+    const out: Record<string, string> = { [periodLabel]: String(row[periodKey] ?? '') };
+    for (const c of CONDITIONS) {
+      out[formatCondition(c)] = String(row[c] ?? 0);
+    }
+    return out;
+  });
+}
+
+const PIVOT_HEADERS = ['Kelompok Usia', ...CONDITIONS.map(formatCondition)];
+
+function ExportButtons({
+  onExcel,
+  onPDF,
+  exporting,
+  disabled = false,
+}: {
+  onExcel: () => void;
+  onPDF: () => void;
+  exporting: 'excel' | 'pdf' | null;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex gap-2">
+      <button
+        onClick={onExcel}
+        disabled={disabled || exporting !== null}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
+        style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}
+      >
+        {exporting === 'excel' ? '…' : '↓'} Export Excel
+      </button>
+      <button
+        onClick={onPDF}
+        disabled={disabled || exporting !== null}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
+        style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
+      >
+        {exporting === 'pdf' ? '…' : '↓'} Export PDF
+      </button>
+    </div>
+  );
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -219,22 +299,11 @@ function TabHistori({ logs, products }: { logs: AnalysisLog[]; products: Product
           {filtered.length} record
         </span>
         <div className="flex gap-2">
-          <button
-            onClick={handleExportExcel}
-            disabled={exporting !== null}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
-            style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}
-          >
-            {exporting === 'excel' ? '…' : '↓'} Export Excel
-          </button>
-          <button
-            onClick={handleExportPDF}
-            disabled={exporting !== null}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
-            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
-          >
-            {exporting === 'pdf' ? '…' : '↓'} Export PDF
-          </button>
+          <ExportButtons
+            exporting={exporting}
+            onExcel={handleExportExcel}
+            onPDF={handleExportPDF}
+          />
         </div>
       </div>
 
@@ -287,6 +356,8 @@ function TabHistori({ logs, products }: { logs: AnalysisLog[]; products: Product
 // ── Tab 2: Distribusi Kondisi Kulit ───────────────────────────────────────────
 
 function TabDistribusi({ chartsData, total }: { chartsData: ChartsData; total: number }) {
+  const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
+
   const pieData = chartsData.conditionDistribution.map(r => ({
     name:  formatCondition(r.condition),
     value: r.count,
@@ -294,6 +365,37 @@ function TabDistribusi({ chartsData, total }: { chartsData: ChartsData; total: n
   }));
 
   const barData = pivotAgeGroup(chartsData.ageGroupDistribution);
+
+  const distRows = chartsData.conditionDistribution.map(r => ({
+    Kondisi:     formatCondition(r.condition),
+    Jumlah:      r.count,
+    Persentase:  total > 0 ? `${Math.round((r.count / total) * 100)}%` : '0%',
+  }));
+
+  const ageRows = pivotToExportRows(barData, 'ageGroup', 'Kelompok Usia');
+  const distHeaders = ['Kondisi', 'Jumlah', 'Persentase'];
+
+  const handleExportExcel = () => {
+    setExporting('excel');
+    exportToExcelMulti([
+      { name: 'Distribusi Kondisi', rows: distRows },
+      { name: 'Segmentasi Usia', rows: ageRows },
+    ], `distribusi-kondisi-${Date.now()}.xlsx`);
+    setTimeout(() => setExporting(null), 800);
+  };
+
+  const handleExportPDF = () => {
+    setExporting('pdf');
+    exportToPDFMulti('Distribusi Kondisi Kulit', [
+      { title: 'Ringkasan per Kondisi', headers: distHeaders, rows: distRows.map(r => ({
+        Kondisi: r.Kondisi,
+        Jumlah: String(r.Jumlah),
+        Persentase: r.Persentase,
+      })) },
+      { title: 'Segmentasi Usia per Kondisi', headers: PIVOT_HEADERS, rows: ageRows },
+    ]);
+    setTimeout(() => setExporting(null), 800);
+  };
 
   const RADIAN = Math.PI / 180;
   const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: PieLabelRenderProps) => {
@@ -315,6 +417,18 @@ function TabDistribusi({ chartsData, total }: { chartsData: ChartsData; total: n
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          Total {total} analisis
+        </span>
+        <ExportButtons
+          exporting={exporting}
+          onExcel={handleExportExcel}
+          onPDF={handleExportPDF}
+          disabled={total === 0}
+        />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Pie Chart */}
         <div className="admin-card p-5">
@@ -386,10 +500,49 @@ function TabDistribusi({ chartsData, total }: { chartsData: ChartsData; total: n
 // ── Tab 3: Rekomendasi Produk ─────────────────────────────────────────────────
 
 function TabProduk({ chartsData }: { chartsData: ChartsData }) {
+  const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
   const barData = chartsData.topRecommendedProducts;
+
+  const productRows = barData.map((row, i) => ({
+    '#':           i + 1,
+    'Nama Produk': row.productName,
+    Frekuensi:     row.count,
+  }));
+
+  const pdfRows = productRows.map(r => ({
+    '#': String(r['#']),
+    'Nama Produk': r['Nama Produk'],
+    Frekuensi: String(r.Frekuensi),
+  }));
+
+  const headers = ['#', 'Nama Produk', 'Frekuensi'];
+
+  const handleExportExcel = () => {
+    setExporting('excel');
+    exportToExcel(productRows, `rekomendasi-produk-${Date.now()}.xlsx`, 'Rekomendasi Produk');
+    setTimeout(() => setExporting(null), 800);
+  };
+
+  const handleExportPDF = () => {
+    setExporting('pdf');
+    exportToPDF(pdfRows, 'Rekomendasi Produk', headers);
+    setTimeout(() => setExporting(null), 800);
+  };
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          Top {barData.length} produk
+        </span>
+        <ExportButtons
+          exporting={exporting}
+          onExcel={handleExportExcel}
+          onPDF={handleExportPDF}
+          disabled={barData.length === 0}
+        />
+      </div>
+
       <div className="admin-card p-5">
         <h3 className="admin-section-header mb-1">Produk Paling Sering Direkomendasikan</h3>
         <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Top 10 produk berdasarkan frekuensi rekomendasi</p>
@@ -445,29 +598,52 @@ function TabProduk({ chartsData }: { chartsData: ChartsData }) {
 function TabTren({ chartsData, granularity, onGranularityChange }:
   { chartsData: ChartsData; granularity: Granularity; onGranularityChange: (g: Granularity) => void }) {
 
+  const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
   const lineData = pivotTrend(chartsData.conditionTrend);
 
   const GRAN_LABELS: Record<Granularity, string> = { day: 'Harian', week: 'Mingguan', month: 'Bulanan' };
+  const trendHeaders = ['Periode', ...CONDITIONS.map(formatCondition)];
+  const trendRows = pivotToExportRows(lineData, 'date', 'Periode');
+
+  const handleExportExcel = () => {
+    setExporting('excel');
+    exportToExcel(trendRows, `tren-kondisi-${granularity}-${Date.now()}.xlsx`, `Tren ${GRAN_LABELS[granularity]}`);
+    setTimeout(() => setExporting(null), 800);
+  };
+
+  const handleExportPDF = () => {
+    setExporting('pdf');
+    exportToPDF(trendRows, `Tren Kondisi Kulit (${GRAN_LABELS[granularity]})`, trendHeaders);
+    setTimeout(() => setExporting(null), 800);
+  };
 
   return (
     <div className="space-y-4">
       {/* Toggle granularity */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Tampilkan:</span>
-        {(['day', 'week', 'month'] as Granularity[]).map(g => (
-          <button
-            key={g}
-            onClick={() => onGranularityChange(g)}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium transition"
-            style={{
-              background: granularity === g ? 'var(--primary)' : 'var(--bg-sidebar)',
-              color: granularity === g ? '#fff' : 'var(--text-secondary)',
-              border: granularity === g ? 'none' : '1px solid var(--border-soft)',
-            }}
-          >
-            {GRAN_LABELS[g]}
-          </button>
-        ))}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Tampilkan:</span>
+          {(['day', 'week', 'month'] as Granularity[]).map(g => (
+            <button
+              key={g}
+              onClick={() => onGranularityChange(g)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition"
+              style={{
+                background: granularity === g ? 'var(--primary)' : 'var(--bg-sidebar)',
+                color: granularity === g ? '#fff' : 'var(--text-secondary)',
+                border: granularity === g ? 'none' : '1px solid var(--border-soft)',
+              }}
+            >
+              {GRAN_LABELS[g]}
+            </button>
+          ))}
+        </div>
+        <ExportButtons
+          exporting={exporting}
+          onExcel={handleExportExcel}
+          onPDF={handleExportPDF}
+          disabled={lineData.length === 0}
+        />
       </div>
 
       <div className="admin-card p-5">
