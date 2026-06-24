@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wireframe — Laporan</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="admin-layout">
+  <aside class="admin-sidebar">
+    <h2>Admin Panel</h2>
+    <nav>
+      <a href="admin-dashboard.html">Dashboard</a>
+      <a href="admin-reports.html" class="active">Laporan</a>
+      <div class="nav-group">Master Data</div>
+      <a href="admin-products.html">Produk</a>
+      <a href="#">Brand</a>
+      <a href="#">Kategori</a>
+      <a href="#">Bahan Aktif</a>
+      <div class="nav-group">Konfigurasi</div>
+      <a href="#">Rules</a>
+      <a href="#">Rekomendasi</a>
+      <a href="#">Akun Admin</a>
+      <a href="index.html" style="margin-top:16px;">Portal Pengguna</a>
+    </nav>
+  </aside>
+
+  <main class="admin-main">
+    <h1 class="wf-heading">Laporan</h1>
+    <p class="wf-sub">Eksplorasi data analisis kondisi kulit</p>
+
+    <!-- Tabs -->
+    <div class="wf-tabs">
+      <span class="wf-btn">Histori Analisis</span>
+      <span class="wf-btn">Distribusi Kondisi</span>
+      <span class="wf-btn active">Tren Produk</span>
+      <span class="wf-btn">Tren Kondisi</span>
+    </div>
+
+    <!-- Filter granularity -->
+    <div class="wf-card" style="margin-bottom:20px; padding:12px;">
+      <label class="wf-label">Granularitas: Harian / Mingguan / Bulanan</label>
+      <div style="display:flex; gap:8px; margin-top:6px;">
+        <span class="wf-btn active">Harian</span>
+        <span class="wf-btn">Mingguan</span>
+        <span class="wf-btn">Bulanan</span>
+      </div>
+    </div>
+
+    <!-- Chart 1: Produk paling sering direkomendasikan -->
+    <div class="wf-card" style="margin-bottom:24px;">
+      <strong>Produk Paling Sering Direkomendasikan</strong>
+      <p style="font-size:11px; margin:4px 0 16px;">Top 10 produk berdasarkan frekuensi rekomendasi</p>
+      <div class="chart-bars-h">
+        <div class="bar-row">
+          <span class="bar-label">Produk A</span>
+          <div class="bar-track"><div class="bar-fill" style="width:90%"></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Produk B</span>
+          <div class="bar-track"><div class="bar-fill" style="width:70%"></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Produk C</span>
+          <div class="bar-track"><div class="bar-fill" style="width:55%"></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Produk D</span>
+          <div class="bar-track"><div class="bar-fill" style="width:40%"></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Produk E</span>
+          <div class="bar-track"><div class="bar-fill" style="width:25%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart 2: Tren kondisi kulit -->
+    <div class="wf-card">
+      <strong>Grafik Tren Kondisi Kulit</strong>
+      <p style="font-size:11px; margin:4px 0 8px;">Jumlah analisis per kondisi (harian)</p>
+      <div class="chart-line">
+        <svg viewBox="0 0 400 160" preserveAspectRatio="none">
+          <polyline points="0,120 50,100 100,110 150,70 200,80 250,50 300,60 350,40 400,55"
+            fill="none" stroke="#333" stroke-width="2"/>
+          <line x1="0" y1="150" x2="400" y2="150" stroke="#333" stroke-width="1"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Tabel detail (opsional di tab ini) -->
+    <div class="wf-card" style="margin-top:24px; padding:0; overflow:hidden;">
+      <div style="padding:12px; border-bottom:1px solid #333; font-weight:bold;">Detail Produk</div>
+      <table class="wf-table" style="border:none;">
+        <thead>
+          <tr><th>#</th><th>Nama Produk</th><th>Frekuensi</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Produk A</td><td>42x</td></tr>
+          <tr><td>2</td><td>Produk B</td><td>31x</td></tr>
+          <tr><td>3</td><td>Produk C</td><td>24x</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+  </div>
+
+</body>
+</html>

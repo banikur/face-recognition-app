@@ -50,17 +50,17 @@ export default function RecommendationCard({ skinType, recommendations }: Props)
     <div className="flex-1 px-5 pt-5 pb-6 overflow-y-auto">
       <p
         className="text-[10px] font-semibold tracking-widest uppercase mb-1"
-        style={{ color: "rgba(255,255,255,0.35)" }}
+        style={{ color: "#94A3B8" }}
       >
         Rekomendasi Produk
       </p>
 
       {skinType ? (
-        <p className="text-xs mb-4" style={{ color: "rgba(255,255,255,0.45)" }}>
+        <p className="text-xs mb-4" style={{ color: "#64748B" }}>
           Untuk kulit {skinType}
         </p>
       ) : (
-        <p className="text-xs mb-4" style={{ color: "rgba(255,255,255,0.25)" }}>
+        <p className="text-xs mb-4" style={{ color: "#94A3B8" }}>
           Hasil analisis akan muncul setelah capture
         </p>
       )}
@@ -68,7 +68,7 @@ export default function RecommendationCard({ skinType, recommendations }: Props)
       {loading ? (
         <div className="flex items-center gap-2.5 py-2">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500/30 border-t-blue-400" />
-          <span className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+          <span className="text-sm" style={{ color: "#64748B" }}>
             Memuat rekomendasi...
           </span>
         </div>
@@ -79,8 +79,8 @@ export default function RecommendationCard({ skinType, recommendations }: Props)
               key={p.id}
               className="flex items-start gap-3 rounded-xl p-3.5"
               style={{
-                backgroundColor: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.08)",
+                backgroundColor: "#F1F5F9",
+                border: "1px solid #E2E8F0",
               }}
             >
               {/* Icon */}
@@ -104,19 +104,19 @@ export default function RecommendationCard({ skinType, recommendations }: Props)
               <div className="min-w-0 flex-1">
                 <p
                   className="text-sm font-semibold leading-snug"
-                  style={{ color: "#F5F5F7" }}
+                  style={{ color: "#0F172A" }}
                 >
                   {p.name}
                 </p>
                 {p.brand && (
-                  <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  <p className="text-xs mt-0.5" style={{ color: "#64748B" }}>
                     {p.brand}
                   </p>
                 )}
                 {p.description && (
                   <p
                     className="text-xs mt-1.5 line-clamp-2"
-                    style={{ color: "rgba(255,255,255,0.5)" }}
+                    style={{ color: "#64748B" }}
                   >
                     {p.description}
                   </p>
@@ -129,9 +129,9 @@ export default function RecommendationCard({ skinType, recommendations }: Props)
         <div
           className="rounded-xl px-4 py-6 text-center text-xs"
           style={{
-            backgroundColor: "rgba(255,255,255,0.03)",
-            border: "1px dashed rgba(255,255,255,0.1)",
-            color: "rgba(255,255,255,0.3)",
+            backgroundColor: "#F8FAFC",
+            border: "1px dashed #CBD5E1",
+            color: "#94A3B8",
           }}
         >
           Belum ada rekomendasi produk.

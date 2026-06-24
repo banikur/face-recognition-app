@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wireframe — Admin Produk</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="admin-layout">
+  <aside class="admin-sidebar">
+    <h2>Admin Panel</h2>
+    <nav>
+      <a href="admin-dashboard.html">Dashboard</a>
+      <a href="admin-reports.html">Laporan</a>
+      <div class="nav-group">Master Data</div>
+      <a href="admin-products.html" class="active">Produk</a>
+      <a href="#">Brand</a>
+      <a href="#">Kategori</a>
+      <a href="#">Bahan Aktif</a>
+      <div class="nav-group">Konfigurasi</div>
+      <a href="#">Rules</a>
+      <a href="#">Rekomendasi</a>
+      <a href="#">Akun Admin</a>
+      <a href="index.html" style="margin-top:16px;">Portal Pengguna</a>
+    </nav>
+  </aside>
+
+  <main class="admin-main">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;">
+      <div>
+        <h1 class="wf-heading">Products</h1>
+        <p class="wf-sub">Manage product catalog</p>
+      </div>
+      <span class="wf-btn">+ Add Product</span>
+    </div>
+
+    <!-- Form card (contoh mode tambah/edit) -->
+    <div class="wf-card" style="margin-bottom:24px;">
+      <strong style="display:block; margin-bottom:16px;">New Product</strong>
+      <div class="wf-grid-2" style="margin-bottom:14px;">
+        <div class="form-group">
+          <label class="wf-label">Product Name *</label>
+          <div class="wf-input">[ text ]</div>
+        </div>
+        <div class="form-group">
+          <label class="wf-label">Image URL</label>
+          <div class="wf-input">[ text ] https://...</div>
+        </div>
+        <div class="form-group">
+          <label class="wf-label">Brand</label>
+          <div class="wf-input">[ select ] Select brand ▾</div>
+        </div>
+        <div class="form-group">
+          <label class="wf-label">Category</label>
+          <div class="wf-input">[ select ] Select category ▾</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="wf-label">Description</label>
+        <div class="wf-input" style="height:48px;">[ textarea ]</div>
+      </div>
+      <div class="form-group">
+        <label class="wf-label">Ingredients (checkbox multi-select)</label>
+        <div class="wf-box-light" style="padding:12px; display:grid; grid-template-columns:repeat(4,1fr); gap:8px; font-size:11px;">
+          <label>☑ Niacinamide</label>
+          <label>☐ Retinol</label>
+          <label>☑ Salicylic Acid</label>
+          <label>☐ Hyaluronic Acid</label>
+        </div>
+        <p style="font-size:11px; margin-top:6px;">Selected: 2 ingredients</p>
+      </div>
+      <div style="text-align:right; margin-top:12px;">
+        <span class="wf-btn">Cancel</span>
+        <span class="wf-btn active">Create</span>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <table class="wf-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Brand</th>
+          <th>Category</th>
+          <th>Weights</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <strong>Serum Acne Control</strong><br>
+            <span style="font-size:11px;">Deskripsi singkat...</span>
+          </td>
+          <td>Brand A</td>
+          <td><span class="wf-btn" style="font-size:10px; padding:2px 6px;">Serum</span></td>
+          <td style="font-size:10px;">Ac:72 Bk:45 Cl:30 Dk:20 Pf:15 Wr:10</td>
+          <td><span style="color:#333;">Edit</span> | <span>Delete</span></td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Hydrating Toner</strong><br>
+            <span style="font-size:11px;">Deskripsi singkat...</span>
+          </td>
+          <td>Brand B</td>
+          <td><span class="wf-btn" style="font-size:10px; padding:2px 6px;">Toner</span></td>
+          <td style="font-size:10px;">Ac:10 Bk:20 Cl:60 Dk:40 Pf:5 Wr:8</td>
+          <td><span>Edit</span> | <span>Delete</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+  </main>
+  </div>
+
+</body>
+</html>

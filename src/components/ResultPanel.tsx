@@ -36,13 +36,13 @@ export default function ResultPanel({
   return (
     <div
       className="flex-shrink-0"
-      style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+      style={{ borderBottom: "1px solid #E2E8F0" }}
     >
       {/* ── Section: Hasil Analisis ── */}
       <div className="px-5 pt-5 pb-4">
         <p
           className="text-[10px] font-semibold tracking-widest uppercase mb-3"
-          style={{ color: "rgba(255,255,255,0.35)" }}
+          style={{ color: "#94A3B8" }}
         >
           Hasil Analisis
         </p>
@@ -50,7 +50,7 @@ export default function ResultPanel({
         {isAnalyzing ? (
           <div className="flex items-center gap-2.5 py-2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500/30 border-t-blue-400" />
-            <span className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+            <span className="text-sm" style={{ color: "#64748B" }}>
               Menganalisis kondisi kulit...
             </span>
           </div>
@@ -83,7 +83,7 @@ export default function ResultPanel({
             <p className="text-xs mt-0.5 opacity-75">Pastikan wajah terlihat jelas di kamera</p>
           </div>
         ) : (
-          <p className="text-sm py-1" style={{ color: "rgba(255,255,255,0.3)" }}>
+          <p className="text-sm py-1" style={{ color: "#94A3B8" }}>
             Tekan tombol capture untuk memulai analisis
           </p>
         )}
@@ -93,11 +93,11 @@ export default function ResultPanel({
       {scores && faceDetected && (
         <div
           className="px-5 pb-5"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+          style={{ borderTop: "1px solid #E2E8F0" }}
         >
           <p
             className="text-[10px] font-semibold tracking-widest uppercase mt-4 mb-3"
-            style={{ color: "rgba(255,255,255,0.35)" }}
+            style={{ color: "#94A3B8" }}
           >
             Skor per Kondisi
           </p>
@@ -109,7 +109,7 @@ export default function ResultPanel({
                 <li key={key} className="flex items-center gap-3">
                   <span
                     className="w-[88px] text-xs flex-shrink-0"
-                    style={{ color: "rgba(255,255,255,0.7)" }}
+                    style={{ color: "#334155" }}
                   >
                     {label}
                   </span>
@@ -117,7 +117,7 @@ export default function ResultPanel({
                   {/* Track */}
                   <div
                     className="flex-1 h-1.5 rounded-full overflow-hidden"
-                    style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
+                    style={{ backgroundColor: "#E2E8F0" }}
                   >
                     <div
                       className="h-full rounded-full transition-all duration-500"
@@ -127,7 +127,7 @@ export default function ResultPanel({
 
                   <span
                     className="w-9 text-right text-xs font-semibold flex-shrink-0"
-                    style={{ color: "rgba(255,255,255,0.85)" }}
+                    style={{ color: "#1E293B" }}
                   >
                     {value}%
                   </span>

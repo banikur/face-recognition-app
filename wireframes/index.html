@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wireframe — Home / Live Scan</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="home-header">
+    <div><strong>Face Analytic</strong></div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <span class="wf-btn active">Live Scan</span>
+      <a href="products.html" class="wf-btn">Produk</a>
+      <span class="wf-box-light" style="padding:4px 10px; font-size:12px;">Budi, 25 th</span>
+      <span class="wf-btn" title="Ganti Pengguna">✎</span>
+    </div>
+  </header>
+
+  <div class="home-body">
+    <!-- Kolom kiri: Kamera -->
+    <div class="home-left">
+      <div class="camera-toolbar">
+        <span class="wf-btn active">Kamera</span>
+        <span class="wf-btn">Upload</span>
+        <span style="margin-left:auto; font-size:11px;">● Kamera aktif</span>
+      </div>
+      <div class="camera-viewport">
+        <div class="viewfinder">[ Preview Kamera ]<br>Posisikan wajah di dalam bingkai</div>
+      </div>
+      <div class="camera-bottom">
+        <div style="font-size:11px; color:#444;">Tekan untuk menganalisis</div>
+        <div class="capture-btn"></div>
+      </div>
+    </div>
+
+    <!-- Kolom kanan: Hasil + Rekomendasi -->
+    <aside class="home-right">
+      <div class="panel-block">
+        <div class="wf-section-title">Hasil Analisis</div>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <span class="wf-btn active">acne</span>
+          <span class="wf-box-light" style="padding:4px 8px; font-size:11px;">87% confidence</span>
+        </div>
+      </div>
+
+      <div class="panel-block">
+        <div class="wf-section-title">Skor per Kondisi</div>
+        <div class="score-bar"><span class="label">Acne</span><div class="track"><div class="fill" style="width:72%"></div></div><span>72%</span></div>
+        <div class="score-bar"><span class="label">Blackheads</span><div class="track"><div class="fill" style="width:45%"></div></div><span>45%</span></div>
+        <div class="score-bar"><span class="label">Clear skin</span><div class="track"><div class="fill" style="width:30%"></div></div><span>30%</span></div>
+        <div class="score-bar"><span class="label">Dark spots</span><div class="track"><div class="fill" style="width:20%"></div></div><span>20%</span></div>
+        <div class="score-bar"><span class="label">Puffy eyes</span><div class="track"><div class="fill" style="width:15%"></div></div><span>15%</span></div>
+        <div class="score-bar"><span class="label">Wrinkles</span><div class="track"><div class="fill" style="width:10%"></div></div><span>10%</span></div>
+      </div>
+
+      <div class="panel-block">
+        <div class="wf-section-title">Rekomendasi Produk</div>
+        <p style="font-size:12px; margin-bottom:12px;">Untuk kulit acne</p>
+        <div class="wf-card" style="margin-bottom:8px;">
+          <strong>Serum Acne Control</strong><br>
+          <span style="font-size:11px;">Brand X — Deskripsi singkat produk...</span>
+        </div>
+        <div class="wf-card" style="margin-bottom:8px;">
+          <strong>Gentle Cleanser</strong><br>
+          <span style="font-size:11px;">Brand Y — Deskripsi singkat produk...</span>
+        </div>
+        <div class="wf-card">
+          <strong>Moisturizer Gel</strong><br>
+          <span style="font-size:11px;">Brand Z — Deskripsi singkat produk...</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Modal: User Info (ditampilkan sebagai contoh) -->
+  <div class="modal-overlay" style="pointer-events:none; opacity:0.85;">
+    <div class="modal-box">
+      <div style="text-align:center; margin-bottom:12px;">
+        <div class="wf-box" style="width:48px; height:48px; margin:0 auto 8px;"></div>
+        <strong>Sebelum Memulai</strong>
+        <p style="font-size:11px; margin-top:4px;">Isi data berikut agar hasil analisis dapat tersimpan dengan benar.</p>
+      </div>
+      <div class="form-group">
+        <label class="wf-label">Nama Lengkap *</label>
+        <div class="wf-input">[ text ]</div>
+      </div>
+      <div class="form-group">
+        <label class="wf-label">Usia *</label>
+        <div class="wf-input">[ number ]</div>
+      </div>
+      <span class="wf-btn" style="display:block; text-align:center; margin-top:12px;">Mulai Analisis</span>
+    </div>
+  </div>
+
+  <p class="wf-link-list" style="position:fixed; bottom:8px; left:8px; background:#fff; padding:4px 8px;">
+    Wireframe: <a href="index.html">Home</a>
+    <a href="products.html">Produk</a>
+    <a href="recommendations.html">Rekomendasi</a>
+    <a href="login.html">Login</a>
+    <a href="admin-dashboard.html">Admin</a>
+  </p>
+</body>
+</html>

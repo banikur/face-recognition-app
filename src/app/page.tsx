@@ -40,11 +40,11 @@ function UserInfoModal({ onSubmit }: { onSubmit: (info: UserInfo) => void }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0,0,0,0.82)", backdropFilter: "blur(8px)" }}
+      style={{ backgroundColor: "rgba(0,0,0,0.4)", backdropFilter: "blur(8px)" }}
     >
       <div
         className="w-full max-w-sm rounded-2xl p-7 shadow-2xl"
-        style={{ backgroundColor: "#1C1C1E", border: "1px solid rgba(255,255,255,0.12)" }}
+        style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0" }}
       >
         {/* Icon */}
         <div className="flex justify-center mb-5">
@@ -58,16 +58,16 @@ function UserInfoModal({ onSubmit }: { onSubmit: (info: UserInfo) => void }) {
           </div>
         </div>
 
-        <h2 className="text-center text-base font-semibold mb-1" style={{ color: "#F5F5F7" }}>
+        <h2 className="text-center text-base font-semibold mb-1" style={{ color: "#0F172A" }}>
           Sebelum Memulai
         </h2>
-        <p className="text-center text-xs mb-6" style={{ color: "rgba(255,255,255,0.45)" }}>
+        <p className="text-center text-xs mb-6" style={{ color: "#64748B" }}>
           Isi data berikut agar hasil analisis dapat tersimpan dengan benar.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.6)" }}>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: "#475569" }}>
               Nama Lengkap <span style={{ color: "#EF4444" }}>*</span>
             </label>
             <input
@@ -78,15 +78,15 @@ function UserInfoModal({ onSubmit }: { onSubmit: (info: UserInfo) => void }) {
               autoFocus
               className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
               style={{
-                backgroundColor: "rgba(255,255,255,0.07)",
-                border: "1px solid rgba(255,255,255,0.14)",
-                color: "#F5F5F7",
+                backgroundColor: "#F1F5F9",
+                border: "1px solid #E2E8F0",
+                color: "#0F172A",
               }}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.6)" }}>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: "#475569" }}>
               Usia <span style={{ color: "#EF4444" }}>*</span>
             </label>
             <input
@@ -98,9 +98,9 @@ function UserInfoModal({ onSubmit }: { onSubmit: (info: UserInfo) => void }) {
               max={100}
               className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
               style={{
-                backgroundColor: "rgba(255,255,255,0.07)",
-                border: "1px solid rgba(255,255,255,0.14)",
-                color: "#F5F5F7",
+                backgroundColor: "#F1F5F9",
+                border: "1px solid #E2E8F0",
+                color: "#0F172A",
               }}
             />
           </div>
@@ -111,7 +111,7 @@ function UserInfoModal({ onSubmit }: { onSubmit: (info: UserInfo) => void }) {
             </p>
           )}
 
-          <p className="text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.3)" }}>
+          <p className="text-[10px] leading-relaxed" style={{ color: "#94A3B8" }}>
             Data Anda hanya digunakan untuk keperluan analisis kulit dan tidak dibagikan kepada pihak ketiga.
           </p>
 
@@ -139,11 +139,11 @@ function ConfirmResetDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0,0,0,0.70)", backdropFilter: "blur(6px)" }}
+      style={{ backgroundColor: "rgba(0,0,0,0.4)", backdropFilter: "blur(6px)" }}
     >
       <div
         className="w-full max-w-xs rounded-2xl p-6 shadow-2xl"
-        style={{ backgroundColor: "#242426", border: "1px solid rgba(255,255,255,0.12)" }}
+        style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0" }}
       >
         <div className="flex items-center gap-3 mb-3">
           <div
@@ -154,16 +154,16 @@ function ConfirmResetDialog({
               <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-          <h3 className="text-sm font-semibold" style={{ color: "#F5F5F7" }}>Ganti Pengguna?</h3>
+          <h3 className="text-sm font-semibold" style={{ color: "#0F172A" }}>Ganti Pengguna?</h3>
         </div>
-        <p className="text-xs mb-5" style={{ color: "rgba(255,255,255,0.5)" }}>
+        <p className="text-xs mb-5" style={{ color: "#64748B" }}>
           Sesi analisis saat ini akan direset dan data pengguna dihapus dari sesi ini.
         </p>
         <div className="flex gap-2">
           <button
             onClick={onCancel}
             className="flex-1 py-2 rounded-xl text-xs font-medium"
-            style={{ backgroundColor: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.1)" }}
+            style={{ backgroundColor: "#F1F5F9", color: "#334155", border: "1px solid #E2E8F0" }}
           >
             Batal
           </button>
@@ -252,8 +252,8 @@ export default function Home() {
       style={{
         height: "100dvh",
         overflow: "hidden",
-        backgroundColor: "#1C1C1E",
-        color: "#F5F5F7",
+        backgroundColor: "#F8FAFC",
+        color: "#0F172A",
       }}
     >
       {/* Modals */}
@@ -270,7 +270,7 @@ export default function Home() {
         className="flex items-center justify-between px-4 sm:px-6 flex-shrink-0"
         style={{
           height: 52,
-          borderBottom: "1px solid rgba(255,255,255,0.08)",
+          borderBottom: "1px solid #E2E8F0",
         }}
       >
         {/* Logo */}
@@ -283,7 +283,7 @@ export default function Home() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
           </div>
-          <span className="text-sm font-semibold" style={{ color: "#F5F5F7" }}>
+          <span className="text-sm font-semibold" style={{ color: "#0F172A" }}>
             Face Analytic
           </span>
         </div>
@@ -304,7 +304,7 @@ export default function Home() {
           <Link
             href="/products"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition"
-            style={{ backgroundColor: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.75)" }}
+            style={{ backgroundColor: "#F1F5F9", color: "#334155" }}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
@@ -317,7 +317,7 @@ export default function Home() {
             <div className="flex items-center gap-1">
               <div
                 className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs"
-                style={{ backgroundColor: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)" }}
+                style={{ backgroundColor: "#F1F5F9", color: "#64748B" }}
               >
                 <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -330,7 +330,7 @@ export default function Home() {
                 onClick={() => setShowConfirmReset(true)}
                 title="Ganti Pengguna"
                 className="flex items-center justify-center w-8 h-8 rounded-lg transition"
-                style={{ backgroundColor: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.45)" }}
+                style={{ backgroundColor: "#F1F5F9", color: "#64748B" }}
               >
                 {/* User-edit icon */}
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
@@ -351,14 +351,14 @@ export default function Home() {
         {/* Left: Camera panel — fills all remaining height */}
         <div
           className="flex-1 min-h-0 flex flex-col"
-          style={{ borderRight: "1px solid rgba(255,255,255,0.06)" }}
+          style={{ borderRight: "1px solid #E2E8F0" }}
         >
           {userInfo ? (
             <CameraPanel onCapture={handleCapture} isAnalyzing={isAnalyzing} />
           ) : (
             <div
               className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center"
-              style={{ backgroundColor: "#111113", color: "rgba(255,255,255,0.45)" }}
+              style={{ backgroundColor: "#FFFFFF", color: "#64748B" }}
             >
               <svg className="w-10 h-10 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -372,7 +372,7 @@ export default function Home() {
         <div
           className="w-full lg:w-[320px] xl:w-[360px] flex flex-col flex-shrink-0 min-h-0"
           style={{
-            backgroundColor: "#1C1C1E",
+            backgroundColor: "#F8FAFC",
             overflowY: "auto",
           }}
         >

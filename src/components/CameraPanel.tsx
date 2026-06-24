@@ -62,7 +62,7 @@ function FaceBBoxOverlay({ box, mirrored = true }: { box: FaceBoundingBox; mirro
 
 // ── Corner markers for the viewfinder ────────────────────────────────────────
 function ViewfinderBox({ active }: { active: boolean }) {
-  const C = active ? "#3B82F6" : "rgba(255,255,255,0.35)";
+  const C = active ? "#3B82F6" : "#CBD5E1";
   const cornerStyle = (pos: React.CSSProperties): React.CSSProperties => ({
     position: "absolute",
     width: 22,
@@ -96,7 +96,7 @@ function ViewfinderBox({ active }: { active: boolean }) {
           style={{
             position: "absolute",
             inset: 0,
-            border: `1px solid ${active ? "rgba(59,130,246,0.25)" : "rgba(255,255,255,0.12)"}`,
+            border: `1px solid ${active ? "rgba(59,130,246,0.25)" : "#E2E8F0"}`,
             borderRadius: 4,
           }}
         />
@@ -119,8 +119,8 @@ function ViewfinderBox({ active }: { active: boolean }) {
             transform: "translateX(-50%)",
             whiteSpace: "nowrap",
             fontSize: 11,
-            color: active ? "rgba(147,197,253,0.9)" : "rgba(255,255,255,0.4)",
-            backgroundColor: "rgba(0,0,0,0.45)",
+            color: active ? "#2563EB" : "#64748B",
+            backgroundColor: "#F1F5F9",
             padding: "2px 10px",
             borderRadius: 20,
           }}
@@ -149,6 +149,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [privacyResolved, setPrivacyResolved] = useState(false);
   const [liveFaceBox, setLiveFaceBox] = useState<FaceBoundingBox | null>(null);
+  const [capturedImageBase64, setCapturedImageBase64] = useState<string | null>(null);
   const liveDetectingRef = useRef(false);
 
   // ── Privacy consent sebelum akses kamera / model ─────────────────────────
@@ -261,6 +262,11 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
         if (!video || !cameraReady) { setProcessingState("idle"); return; }
         const snapshot = snapshotFromVideo(video);
         if (!snapshot) { setProcessingState("idle"); return; }
+        
+        // Freeze frame: set captured image and pause video
+        setCapturedImageBase64(snapshot.toDataURL("image/jpeg", 0.85));
+        video.pause();
+
         setProcessingState("classifying");
         result = await analyzeSnapshot(snapshot);
       } else {
@@ -292,6 +298,13 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
       setTimeout(() => setProcessingState("idle"), 400);
     }
   }, [privacyAccepted, mode, cameraReady, uploadImageLoaded, processingState, isAnalyzing, onCapture]);
+
+  const handleRetake = useCallback(() => {
+    setCapturedImageBase64(null);
+    if (videoRef.current) {
+      videoRef.current.play().catch(() => {});
+    }
+  }, []);
 
   // ── File upload ───────────────────────────────────────────────────────────
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -387,7 +400,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        backgroundColor: "#111113",
+        backgroundColor: "#FFFFFF",
         overflow: "hidden",
       }}
     >
@@ -399,19 +412,19 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
           gap: 8,
           padding: "8px 16px",
           flexShrink: 0,
-          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          borderBottom: "1px solid #E2E8F0",
         }}
       >
         {/* Kamera toggle */}
         <button
-          onClick={() => { setMode("camera"); setUploadedImage(null); setError(null); }}
+          onClick={() => { setMode("camera"); setUploadedImage(null); setError(null); handleRetake(); }}
           style={{
             display: "flex", alignItems: "center", gap: 6,
             padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500,
             cursor: "pointer", transition: "all 0.15s",
             backgroundColor: mode === "camera" ? "rgba(255,255,255,0.11)" : "transparent",
-            color: mode === "camera" ? "#F5F5F7" : "rgba(255,255,255,0.4)",
-            border: mode === "camera" ? "1px solid rgba(255,255,255,0.16)" : "1px solid transparent",
+            color: mode === "camera" ? "#0F172A" : "#64748B",
+            border: mode === "camera" ? "1px solid #CBD5E1" : "1px solid transparent",
           }}
         >
           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -423,14 +436,14 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
 
         {/* Upload toggle */}
         <button
-          onClick={() => { setMode("upload"); setError(null); }}
+          onClick={() => { setMode("upload"); setError(null); handleRetake(); }}
           style={{
             display: "flex", alignItems: "center", gap: 6,
             padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500,
             cursor: "pointer", transition: "all 0.15s",
             backgroundColor: mode === "upload" ? "rgba(255,255,255,0.11)" : "transparent",
-            color: mode === "upload" ? "#F5F5F7" : "rgba(255,255,255,0.4)",
-            border: mode === "upload" ? "1px solid rgba(255,255,255,0.16)" : "1px solid transparent",
+            color: mode === "upload" ? "#0F172A" : "#64748B",
+            border: mode === "upload" ? "1px solid #CBD5E1" : "1px solid transparent",
           }}
         >
           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -450,7 +463,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                 boxShadow: cameraReady ? "0 0 6px #22C55E" : "none",
               }}
             />
-            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+            <span style={{ fontSize: 11, color: "#64748B" }}>
               {cameraReady ? "Kamera aktif" : "Memuat kamera..."}
             </span>
           </div>
@@ -480,19 +493,36 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
             />
 
             {/* Viewfinder overlay — panduan posisi wajah */}
-            {cameraReady && !isProcessing && !liveFaceBox && (
+            {cameraReady && !isProcessing && !liveFaceBox && !capturedImageBase64 && (
               <ViewfinderBox active={cameraReady} />
             )}
 
             {/* Bounding box wajah terdeteksi (live) */}
-            {liveFaceBox && !isProcessing && <FaceBBoxOverlay box={liveFaceBox} />}
+            {liveFaceBox && !isProcessing && !capturedImageBase64 && <FaceBBoxOverlay box={liveFaceBox} />}
+
+            {/* Captured Image Overlay */}
+            {capturedImageBase64 && (
+              <div style={{ position: "absolute", inset: 0, zIndex: 10 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={capturedImageBase64}
+                  alt="Captured"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    transform: "scaleX(-1)", // Mirror to match video
+                  }}
+                />
+              </div>
+            )}
 
             {/* Camera loading state */}
             {!privacyAccepted && privacyResolved && (
               <div style={{
                 position: "absolute", inset: 0, display: "flex",
                 flexDirection: "column", alignItems: "center", justifyContent: "center",
-                color: "rgba(255,255,255,0.5)", padding: 24, textAlign: "center",
+                color: "#64748B", padding: 24, textAlign: "center",
               }}>
                 <p style={{ fontSize: 13, marginBottom: 12 }}>Persetujuan privasi diperlukan untuk mengakses kamera.</p>
                 <button
@@ -531,11 +561,11 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
               <div style={{
                 position: "absolute", inset: 0, display: "flex",
                 flexDirection: "column", alignItems: "center", justifyContent: "center",
-                color: "rgba(255,255,255,0.4)",
+                color: "#64748B",
               }}>
                 <div style={{
                   width: 32, height: 32, borderRadius: "50%",
-                  border: "2px solid rgba(255,255,255,0.15)", borderTop: "2px solid rgba(255,255,255,0.6)",
+                  border: "2px solid #E2E8F0", borderTop: "2px solid #94A3B8",
                   animation: "spin 0.9s linear infinite", marginBottom: 12,
                 }} />
                 <p style={{ fontSize: 13 }}>Mengaktifkan kamera...</p>
@@ -558,7 +588,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                     position: "absolute", inset: 0,
                     width: "100%", height: "100%",
                     objectFit: "contain",
-                    backgroundColor: "#111",
+                    backgroundColor: "#F1F5F9",
                   }}
                   onLoad={() => setUploadImageLoaded(true)}
                 />
@@ -573,7 +603,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
                   position: "absolute", inset: 0, cursor: "pointer",
                   display: "flex", flexDirection: "column",
                   alignItems: "center", justifyContent: "center",
-                  color: "rgba(255,255,255,0.3)",
+                  color: "#94A3B8",
                 }}
               >
                 <svg width="44" height="44" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} style={{ marginBottom: 12 }}>
@@ -591,14 +621,14 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
           <div style={{
             position: "absolute", inset: 0, zIndex: 30,
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            backgroundColor: "rgba(0,0,0,0.7)",
+            backgroundColor: "rgba(0,0,0,0.4)",
           }}>
             <div style={{
               width: 32, height: 32, borderRadius: "50%",
-              border: "2px solid rgba(255,255,255,0.2)", borderTop: "2px solid #fff",
+              border: "2px solid #E2E8F0", borderTop: "2px solid #3B82F6",
               animation: "spin 0.9s linear infinite", marginBottom: 10,
             }} />
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>Memuat gambar...</p>
+            <p style={{ fontSize: 13, color: "#334155" }}>Memuat gambar...</p>
           </div>
         )}
 
@@ -607,7 +637,7 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
           <div style={{
             position: "absolute", inset: 0, zIndex: 30,
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            backgroundColor: "rgba(0,0,0,0.87)", padding: 24, textAlign: "center",
+            backgroundColor: "rgba(0,0,0,0.6)", padding: 24, textAlign: "center",
           }}>
             <svg width="40" height="40" fill="none" stroke="#F87171" viewBox="0 0 24 24" strokeWidth={1.5} style={{ marginBottom: 12 }}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
@@ -630,14 +660,30 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
           <div style={{
             position: "absolute", inset: 0, zIndex: 30,
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            backgroundColor: "rgba(0,0,0,0.60)",
+            backgroundColor: "rgba(0,0,0,0.6)",
+            overflow: "hidden",
           }}>
+            {/* Scanning animation line */}
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                height: "3px",
+                backgroundColor: "#3B82F6",
+                boxShadow: "0 0 15px #3B82F6, 0 0 30px #3B82F6",
+                animation: "scan-vertical 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate",
+                zIndex: 31,
+              }}
+            />
+
             <div style={{
               width: 40, height: 40, borderRadius: "50%",
-              border: "2px solid rgba(255,255,255,0.2)", borderTop: "2px solid #fff",
+              border: "2px solid #E2E8F0", borderTop: "2px solid #3B82F6",
               animation: "spin 0.9s linear infinite", marginBottom: 12,
+              zIndex: 32,
             }} />
-            <p style={{ fontSize: 13, fontWeight: 500, color: "#fff" }}>{processingLabel}</p>
+            <p style={{ fontSize: 13, fontWeight: 500, color: "#fff", zIndex: 32 }}>{processingLabel}</p>
           </div>
         )}
       </div>
@@ -651,44 +697,65 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
           justifyContent: "center",
           gap: 20,
           padding: "12px 20px",
-          borderTop: "1px solid rgba(255,255,255,0.07)",
-          backgroundColor: "#111113",
+          borderTop: "1px solid #E2E8F0",
+          backgroundColor: "#FFFFFF",
         }}
       >
-        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
+        <span style={{ fontSize: 11, color: "#94A3B8" }}>
           {mode === "camera" ? "Tekan untuk menganalisis" : "Pilih gambar lalu analisis"}
         </span>
 
-        {/* Capture button */}
-        <button
-          disabled={captureDisabled}
-          onClick={handleCapture}
-          aria-label="Capture dan analisis"
-          style={{
-            width: 52, height: 52,
-            borderRadius: 14,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            backgroundColor: captureDisabled ? "rgba(255,255,255,0.05)" : "rgba(59,130,246,0.18)",
-            border: `2px solid ${captureDisabled ? "rgba(255,255,255,0.1)" : "rgba(59,130,246,0.7)"}`,
-            cursor: captureDisabled ? "not-allowed" : "pointer",
-            opacity: captureDisabled ? 0.45 : 1,
-            transition: "all 0.15s",
-            flexShrink: 0,
-          }}
-        >
-          {isProcessing ? (
-            <div style={{
-              width: 20, height: 20, borderRadius: "50%",
-              border: "2px solid rgba(255,255,255,0.2)", borderTop: "2px solid #fff",
-              animation: "spin 0.9s linear infinite",
-            }} />
-          ) : (
-            <svg width="24" height="24" fill="none" stroke="#60A5FA" viewBox="0 0 24 24" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          )}
-        </button>
+        {/* Capture or Retake button */}
+        {mode === "camera" && capturedImageBase64 ? (
+          <button
+            onClick={handleRetake}
+            aria-label="Ulangi Scan"
+            style={{
+              padding: "10px 24px",
+              borderRadius: 14,
+              fontSize: 14,
+              fontWeight: 600,
+              backgroundColor: "#F1F5F9",
+              color: "#334155",
+              border: "1px solid #CBD5E1",
+              cursor: "pointer",
+              transition: "all 0.15s",
+              flexShrink: 0,
+            }}
+          >
+            Ulangi Scan
+          </button>
+        ) : (
+          <button
+            disabled={captureDisabled}
+            onClick={handleCapture}
+            aria-label="Capture dan analisis"
+            style={{
+              width: 52, height: 52,
+              borderRadius: 14,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              backgroundColor: captureDisabled ? "rgba(15,23,42,0.05)" : "rgba(59,130,246,0.18)",
+              border: `2px solid ${captureDisabled ? "rgba(15,23,42,0.1)" : "rgba(59,130,246,0.7)"}`,
+              cursor: captureDisabled ? "not-allowed" : "pointer",
+              opacity: captureDisabled ? 0.45 : 1,
+              transition: "all 0.15s",
+              flexShrink: 0,
+            }}
+          >
+            {isProcessing ? (
+              <div style={{
+                width: 20, height: 20, borderRadius: "50%",
+                border: "2px solid #E2E8F0", borderTop: "2px solid #3B82F6",
+                animation: "spin 0.9s linear infinite",
+              }} />
+            ) : (
+              <svg width="24" height="24" fill="none" stroke="#2563EB" viewBox="0 0 24 24" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            )}
+          </button>
+        )}
 
         {/* Upload trigger (upload mode only) */}
         {mode === "upload" && (
@@ -697,9 +764,9 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
             disabled={uploadLoading || isProcessing}
             style={{
               padding: "6px 14px", borderRadius: 8, fontSize: 11, fontWeight: 500,
-              backgroundColor: "rgba(255,255,255,0.07)",
-              color: "rgba(255,255,255,0.6)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              backgroundColor: "#F1F5F9",
+              color: "#475569",
+              border: "1px solid #E2E8F0",
               cursor: "pointer", flexShrink: 0,
             }}
           >
@@ -708,8 +775,15 @@ export default function CameraPanel({ onCapture, isAnalyzing = false }: Props) {
         )}
       </div>
 
-      {/* Spin keyframe injected once */}
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      {/* Spin and scan keyframes injected once */}
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes scan-vertical {
+          0% { top: 0%; opacity: 0.2; }
+          50% { opacity: 1; }
+          100% { top: 100%; opacity: 0.2; }
+        }
+      `}</style>
 
       {/* Hidden file input */}
       <input
